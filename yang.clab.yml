@@ -1,0 +1,40 @@
+name: lab
+prefix: "" # Empty string to not add a prefix to the containers
+
+mgmt:
+  network: yang-lab
+  ipv4-subnet: 192.168.100.0/24
+
+topology:
+  kinds:
+    arista_ceos:
+      image: ${CEOS_IMAGE:-ceos:image}
+      # Set the MGMT VRF globally for all 'ceos' nodes
+      env:
+        CLAB_MGMT_VRF: MGMT
+
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux
+      type: ixr-d1
+  nodes:
+    # Arista
+    ceos-01:
+      kind: arista_ceos
+      mgmt-ipv4: 192.168.100.11
+
+    # Nokia SR Linux
+    srl-01:
+      kind: nokia_srlinux
+      mgmt-ipv4: 192.168.100.12
+
+    srl-02:
+      kind: nokia_srlinux
+      mgmt-ipv4: 192.168.100.13
+
+
+  links:
+    # Router connections
+    - endpoints: ["ceos-01:eth1", "srl-01:e1-1"]
+    - endpoints: ["ceos-01:eth2", "srl-02:e1-1"]
+    - endpoints: ["srl-01:e1-2", "srl-02:e1-2"]
+
