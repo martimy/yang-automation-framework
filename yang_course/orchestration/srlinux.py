@@ -1,6 +1,5 @@
 from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
-from intent.network_instance import NetworkInstanceIntent
 from intent.ni_interface import NiInterfaceBindingIntent
 
 

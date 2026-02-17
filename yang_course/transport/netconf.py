@@ -1,10 +1,7 @@
 from ncclient import manager
-import xmltodict
 
 # import pprint
-import xml.etree.ElementTree as ET
 import xml.dom.minidom
-import sys
 
 
 def pretty_print_xml(xml_string):

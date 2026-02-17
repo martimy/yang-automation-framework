@@ -1,6 +1,5 @@
-from jinja2 import Template, Environment, FileSystemLoader
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Optional
 
 from translation.base import BaseTranslator
 from intent.ni_interface import NiInterfaceBindingIntent

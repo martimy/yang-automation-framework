@@ -5,7 +5,6 @@ Abstract base classes for the translation layer.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, TypeVar, Generic
 from jinja2 import Template, Environment, FileSystemLoader
-import os
 
 # Type variable for intent types
 T = TypeVar("T")
@@ -79,7 +78,6 @@ class BaseTranslator(ABC, Generic[T]):
         Returns:
             str: The generated YANG/XML payload
         """
-        pass
 
     def _render_template(self, template: Template, context: Dict[str, Any]) -> str:
         """
@@ -101,7 +99,6 @@ class RoutingTranslator(BaseTranslator):
     @abstractmethod
     def translate(self, intent: Any) -> str:
         """Translate a routing intent into YANG payload."""
-        pass
 
 
 class NetworkInstanceTranslator(BaseTranslator):
@@ -110,7 +107,6 @@ class NetworkInstanceTranslator(BaseTranslator):
     @abstractmethod
     def translate(self, intent: Any) -> str:
         """Translate a network instance intent into YANG payload."""
-        pass
 
 
 class NtpTranslator(BaseTranslator):
@@ -119,7 +115,6 @@ class NtpTranslator(BaseTranslator):
     @abstractmethod
     def translate(self, intent: Any) -> str:
         """Translate an NTP intent into YANG payload."""
-        pass
 
 
 class SnmpTranslator(BaseTranslator):
@@ -128,7 +123,6 @@ class SnmpTranslator(BaseTranslator):
     @abstractmethod
     def translate(self, intent: Any) -> str:
         """Translate an SNMP intent into YANG payload."""
-        pass
 
 
 # Vendor-specific base classes (optional, but can be useful)

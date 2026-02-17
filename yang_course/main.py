@@ -9,10 +9,6 @@ from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
 from registry import TRANSLATORS, ORCHESTRATORS
 from transport.netconf import NetconfTransport
-from orchestration.ceos import CeosOrchestrator
-from orchestration.srlinux import SrlinuxOrchestrator
-from translation.ceos.interface import CeosInterfaceTranslator
-from translation.srlinux.subinterface import SrlinuxInterfaceTranslator
 
 
 def provision_all():

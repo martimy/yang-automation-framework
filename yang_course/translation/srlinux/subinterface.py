@@ -1,12 +1,11 @@
-from jinja2 import Template, Environment, FileSystemLoader
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Optional
 
 from translation.base import BaseTranslator
 from intent.interface import InterfaceIntent
 
 
-class SrlinuxInterfaceTranslator(BaseTranslator):
+class SrlinuxSubinterfaceTranslator(BaseTranslator):
     """
     Translator for SRLinux interfaces using OpenConfig YANG models.
 
@@ -59,7 +58,7 @@ if __name__ == "__main__":
     }
 
     intent = InterfaceIntent(**paramters)
-    translator = SrlinuxInterfaceTranslator()
+    translator = SrlinuxSubinterfaceTranslator()
     payload = translator.translate(intent)
 
     print(payload)

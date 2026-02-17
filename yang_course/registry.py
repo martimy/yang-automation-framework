@@ -1,6 +1,6 @@
 from translation.ceos.interface import CeosInterfaceTranslator
 from translation.ceos.global_routing import CeosGlobalRoutingTranslator
-from translation.srlinux.subinterface import SrlinuxInterfaceTranslator
+from translation.srlinux.subinterface import SrlinuxSubinterfaceTranslator
 from translation.srlinux.network_instance import NetworkInstanceTranslator
 
 from orchestration.ceos import CeosOrchestrator
@@ -13,7 +13,7 @@ TRANSLATORS = {
         "global": CeosGlobalRoutingTranslator(),
     },
     "srlinux": {
-        "subinterface": SrlinuxInterfaceTranslator(),
+        "subinterface": SrlinuxSubinterfaceTranslator(),
         "network_instance": NetworkInstanceTranslator(),
         "ni_interface": NiInterfaceBindingTranslator(),
     },

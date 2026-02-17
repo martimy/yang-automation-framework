@@ -1,6 +1,5 @@
 from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
-from intent.routing import GlobalRoutingIntent
 
 
 class CeosOrchestrator(DeviceOrchestrator):

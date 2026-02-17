@@ -19,4 +19,3 @@ class DeviceOrchestrator(ABC):
     @abstractmethod
     def bootstrap(self) -> bool:
         """Apply any one-time prerequisites the device needs."""
-        pass
