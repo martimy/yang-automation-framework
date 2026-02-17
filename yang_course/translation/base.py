@@ -68,15 +68,16 @@ class BaseTranslator(ABC, Generic[T]):
         return env.get_template(template_name)
 
     @abstractmethod
-    def translate(self, intent: T) -> str:
+    def translate(self, intent: T, payload_format: str = 'xml') -> str | dict:
         """
         Translate an intent into a vendor-specific YANG payload.
 
         Args:
             intent: The intent object to translate
+            payload_format: The desired output format ('xml' or 'json')
 
         Returns:
-            str: The generated YANG/XML payload
+            str | dict: The generated payload (string for XML, dict for JSON)
         """
 
     def _render_template(self, template: Template, context: Dict[str, Any]) -> str:
@@ -97,7 +98,7 @@ class RoutingTranslator(BaseTranslator):
     """Abstract base class for routing intent translators."""
 
     @abstractmethod
-    def translate(self, intent: Any) -> str:
+    def translate(self, intent: Any, payload_format: str = 'xml') -> str | dict:
         """Translate a routing intent into YANG payload."""
 
 
@@ -105,7 +106,7 @@ class NetworkInstanceTranslator(BaseTranslator):
     """Abstract base class for network instance translators."""
 
     @abstractmethod
-    def translate(self, intent: Any) -> str:
+    def translate(self, intent: Any, payload_format: str = 'xml') -> str | dict:
         """Translate a network instance intent into YANG payload."""
 
 
@@ -113,7 +114,7 @@ class NtpTranslator(BaseTranslator):
     """Abstract base class for NTP intent translators."""
 
     @abstractmethod
-    def translate(self, intent: Any) -> str:
+    def translate(self, intent: Any, payload_format: str = 'xml') -> str | dict:
         """Translate an NTP intent into YANG payload."""
 
 
@@ -121,7 +122,7 @@ class SnmpTranslator(BaseTranslator):
     """Abstract base class for SNMP intent translators."""
 
     @abstractmethod
-    def translate(self, intent: Any) -> str:
+    def translate(self, intent: Any, payload_format: str = 'xml') -> str | dict:
         """Translate an SNMP intent into YANG payload."""
 
 

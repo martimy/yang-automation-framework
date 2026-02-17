@@ -26,8 +26,49 @@ class CeosInterfaceTranslator(BaseTranslator):
         # Load the interface template
         self.template = self._load_template("interface.xml.j2")
 
-    def translate(self, intent: InterfaceIntent) -> str:
-        # Render the template
+    def translate(self, intent: InterfaceIntent, payload_format: str = 'xml') -> str | dict:
+        """
+        Translates an InterfaceIntent into either XML for NETCONF or a dict for gNMI.
+        """
+        if payload_format == 'json':
+            # Construct the JSON payload for gNMI (OpenConfig model)
+            return {
+                "openconfig-interfaces:interfaces": {
+                    "interface": [
+                        {
+                            "name": intent.name,
+                            "config": {
+                                "name": intent.name,
+                                "description": intent.description,
+                                "enabled": intent.enabled,
+                                "mtu": intent.mtu
+                            },
+                            "subinterfaces": {
+                                "subinterface": [
+                                    {
+                                        "index": 0,
+                                        "openconfig-if-ip:ipv4": {
+                                            "addresses": {
+                                                "address": [
+                                                    {
+                                                        "ip": intent.ip_address,
+                                                        "config": {
+                                                            "ip": intent.ip_address,
+                                                            "prefix-length": intent.prefix_length
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+
+        # Render the XML template for NETCONF
         try:
             xml_payload = self.template.render(**intent.__dict__)
             return xml_payload
@@ -36,7 +77,7 @@ class CeosInterfaceTranslator(BaseTranslator):
                 f"Failed to render template for interface {intent.name}: {str(e)}"
             )
 
-    def translate_batch(self, intents: list[InterfaceIntent]) -> str:
+    def translate_batch(self, intents: list[InterfaceIntent], payload_format: str = 'xml') -> str:
         # Render the template
         try:
             xml_payload = self.template.render(interfaces=intents)

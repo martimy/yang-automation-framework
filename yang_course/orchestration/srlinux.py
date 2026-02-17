@@ -17,7 +17,7 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
         # but we verify it exists before proceeding
         return True
 
-    def configure_interface(self, intent: InterfaceIntent) -> bool:
+    def configure_interface(self, intent: InterfaceIntent, payload_format: str = 'xml') -> bool:
         # Step 1: Create the subinterface with IP
         subif_payload = self.translators["subinterface"].translate_batch(intent)
         # print(subif_payload)

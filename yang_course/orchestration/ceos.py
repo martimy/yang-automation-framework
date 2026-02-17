@@ -17,8 +17,16 @@ class CeosOrchestrator(DeviceOrchestrator):
         # return self.transport.push_config(payload)
         return True
 
-    def configure_interface(self, intent: InterfaceIntent) -> bool:
-        # Single payload covers interface + IP + implicit no switchport
-        payload = self.translators["interface"].translate_batch(intent)
-        # print(payload)
+    def configure_interface(self, intents: list[InterfaceIntent], payload_format: str = 'xml') -> bool:
+        """
+        Configures interfaces on a cEOS device.
+
+        Args:
+            intents: A list of InterfaceIntent objects.
+            payload_format: The desired payload format ('xml' or 'json').
+        """
+        # The translator's translate_batch method should handle the format.
+        # We assume it's updated to do so. If not, logic would be needed here.
+        payload = self.translators["interface"].translate_batch(intents, payload_format=payload_format)
+        
         return self.transport.push_config(payload)
