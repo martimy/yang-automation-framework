@@ -68,7 +68,7 @@ class NetconfTransport:
 
             has_candidate = ":candidate" in caps
             has_validate = ":validate" in caps
-            # has_confirmed_commit = ":confirmed-commit" in caps
+            has_confirmed_commit = ":confirmed-commit" in caps
 
             try:
                 if has_candidate:
@@ -80,19 +80,17 @@ class NetconfTransport:
                         # print("calling validate")
                         m.validate(source="candidate")
 
-                    # if has_confirmed_commit and confirmed:
-                    #     # print("calling confirm-commit")
-                    #     m.commit(confirmed=True, timeout=str(timeout))
-                    # else:
-                    m.commit()
+                    if has_confirmed_commit and confirmed:
+                        # print("calling confirm-commit")
+                        m.commit(confirmed=True, timeout=str(timeout))
+                        # In production, check before final commit
+                        m.commit()
+                    else:
+                        m.commit()
                     print("Configuration is committed")
                 else:
-                    m.edit_config(
-                        target="running",
-                        config=payload_xml,
-                        # default_operation="merge"
-                    )
-                    # print("Configuration is merged")
+                    raise RuntimeError("Device does not support candidate datastore")
+
             except Exception as e:
                 print(str(e))
                 return False

@@ -45,6 +45,6 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
                     )
                 )
                 if not self.transport.push_config(binding_payload):
-                    return False 
+                    return False
             return True
         return False
