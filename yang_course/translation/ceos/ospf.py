@@ -28,12 +28,15 @@ class CeosOspfTranslator(BaseTranslator):
                 f"Failed to render template for network instance {intent.name}: {str(e)}"
             )
 
+
 if __name__ == "__main__":
     # For testing
 
-    interfaces = [OspfInterfaceIntent(name="eth1"), OspfInterfaceIntent(name="eth2")] 
+    interfaces = [OspfInterfaceIntent(name="eth1"), OspfInterfaceIntent(name="eth2")]
     areas = [OspfAreaIntent(id="0.0.0.0", interfaces=interfaces)]
-    intent = OspfIntent(name="main", network_instance="default", router_id="10.0.0.1", areas=areas)
+    intent = OspfIntent(
+        name="main", network_instance="default", router_id="10.0.0.1", areas=areas
+    )
 
     translator = OspfTranslator()
     payload = translator.translate(intent)

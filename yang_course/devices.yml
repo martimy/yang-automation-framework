@@ -25,6 +25,12 @@
                 - name: Ethernet2
                   enabled: true
                   network_type: point_to_point_network
+      ntp:
+        - network_instance: MGMT
+          servers:
+            - ip_address: 192.168.100.1
+            - ip_address: pool.ntp.org
+          source_address: 192.168.100.11
 - host: srl-01
   vendor: srlinux
   username: admin
@@ -56,6 +62,12 @@
                 - name: ethernet-1/2.0
                   enabled: true
                   network_type: point-to-point
+      ntp:
+        - network_instance: mgmt
+          servers:
+            - ip_address: 192.168.100.1
+            - ip_address: pool.ntp.org
+          source_address: 192.168.100.12
 - host: srl-02
   vendor: srlinux
   username: admin
@@ -87,3 +99,9 @@
                 - name: ethernet-1/2.0
                   enabled: true
                   network_type: point-to-point
+      ntp:
+        - network_instance: mgmt
+          servers:
+            - ip_address: 192.168.100.1
+            - ip_address: pool.ntp.org
+          source_address: 192.168.100.13

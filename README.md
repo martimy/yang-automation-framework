@@ -694,23 +694,10 @@ The main challenge in configuring OSPF is possibility to create multiple OSPF pr
 
 **NTP Configuration**
 
-NTP is the first feature where you will encounter significant divergence between vendors. The IETF NTP model (RFC 9249, ietf-ntp) is relatively new and vendor support varies considerably. Nokia SR-Linux implements a reasonable subset. Cisco IOS-XE and Arista both have more mature native NTP models that expose more knobs.
+NTP is supported by both vendors using openconfig-system model, which includes SNMP as well. Therefor the steps for implementing the protocol for vendors are the identical.
 
-For your translator registry, the practical approach is to implement an IetfNtpTranslator for vendors that support it and fall back to a native translator for those that do not. Your NtpIntent remains identical in both cases; only the translator class changes.
+Key parameters to capture in NtpIntent are the list of server IPs or hostnames, the source interface for NTP packets, authentication mode and keys if required, and the network instance. NTP should be associated with the management network instance.
 
-Key parameters to capture in NtpIntent: list of server IPs or hostnames, the source interface for NTP packets, authentication mode and keys if required, and whether to use burst mode. Most production deployments need at least two NTP servers for redundancy.
-
-**SNMP Configuration**
-
-SNMP is the most vendor-divergent feature you will encounter in this framework. The ietf-snmp model exists but is inconsistently implemented, meaning you will almost always be working with native YANG models. This is expected and acceptable — the four-layer architecture is specifically designed for this situation. Your SnmpIntent class is clean and portable; the complexity is entirely isolated in the translation and orchestration layers.
-
-For SNMPv2c, the critical parameters are the community string, the list of trap destinations with their community strings, and the system location and contact. For SNMPv3, replace community strings with USM user configurations, authentication protocols (MD5 or SHA), and privacy protocols (DES or AES).
-
-Recommended approach for SNMP in this framework:
-
-- Build native translators for each vendor rather than fighting a poorly-supported IETF model
-- Keep the SnmpIntent class version-agnostic by including both v2c and v3 parameters and letting the translator use whichever fields are relevant
-- Validate SNMP trap delivery as part of your post-commit verification step
 
 **The Translator Registry**
 
@@ -733,10 +720,10 @@ TRANSLATORS = {
 }
 ```
 
-### Lab Exercise 4: Full Device Bring-Up
+### Lab Exercise 4: Full Device Provisioning
 
-Write a complete bring-up script for your SR-Linux node that configures, in order: interfaces with IP addresses, OSPF on those interfaces, an NTP server, and a basic SNMPv2c community. Extend your `SrlinuxOrchestrator` to handle all these features. Use the full candidate/validate/confirmed-commit workflow. After the commit, verify each feature using a targeted get-config subtree filter. This is a realistic simulation of a Day 1 provisioning script.
- 
+Write a complete provisioning script for your network nodes that configures, in order: interfaces with IP addresses, OSPF on those interfaces, an NTP server, and a basic SNMPv2c community. Use the full candidate/validate/confirmed-commit workflow. After the commit, verify each feature using a targeted get-config subtree filter.
+
 
  
 \newpage

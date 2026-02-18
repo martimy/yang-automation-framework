@@ -2,6 +2,8 @@ from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
 from intent.ni_interface import NiInterfaceBindingIntent
 from intent.ospf import OspfIntent
+from intent.ntp import NtpIntent
+
 
 class SrlinuxOrchestrator(DeviceOrchestrator):
     """
@@ -17,7 +19,9 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
         # but we verify it exists before proceeding
         return True
 
-    def configure_interface(self, intent: InterfaceIntent, payload_format: str = 'xml') -> bool:
+    def configure_interface(
+        self, intent: InterfaceIntent, payload_format: str = "xml"
+    ) -> bool:
         # Step 1: Create the subinterface with IP
         subif_payload = self.translators["subinterface"].translate_batch(intent)
         # print(subif_payload)
@@ -48,6 +52,10 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
             return True
         return False
 
-    def configure_ospf(self, intent: OspfIntent, payload_format: str = 'xml') -> bool:
+    def configure_ospf(self, intent: OspfIntent, payload_format: str = "xml") -> bool:
         ospf_payload = self.translators["ospf"].translate(intent)
         return self.transport.push_config(ospf_payload)
+
+    def configure_ntp(self, intent: NtpIntent, payload_format: str = "xml") -> bool:
+        ntp_payload = self.translators["ntp"].translate(intent)
+        return self.transport.push_config(ntp_payload)

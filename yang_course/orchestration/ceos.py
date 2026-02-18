@@ -1,6 +1,8 @@
 from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
 from intent.ospf import OspfIntent
+from intent.ntp import NtpIntent
+
 
 class CeosOrchestrator(DeviceOrchestrator):
     """
@@ -17,7 +19,9 @@ class CeosOrchestrator(DeviceOrchestrator):
         # return self.transport.push_config(payload)
         return True
 
-    def configure_interface(self, intents: list[InterfaceIntent], payload_format: str = 'xml') -> bool:
+    def configure_interface(
+        self, intents: list[InterfaceIntent], payload_format: str = "xml"
+    ) -> bool:
         """
         Configures interfaces on a cEOS device.
 
@@ -27,10 +31,16 @@ class CeosOrchestrator(DeviceOrchestrator):
         """
         # The translator's translate_batch method should handle the format.
         # We assume it's updated to do so. If not, logic would be needed here.
-        payload = self.translators["interface"].translate_batch(intents, payload_format=payload_format)
-        
+        payload = self.translators["interface"].translate_batch(
+            intents, payload_format=payload_format
+        )
+
         return self.transport.push_config(payload)
 
-    def configure_ospf(self, intent: OspfIntent, payload_format: str = 'xml') -> bool:
+    def configure_ospf(self, intent: OspfIntent, payload_format: str = "xml") -> bool:
         ospf_payload = self.translators["ospf"].translate(intent)
         return self.transport.push_config(ospf_payload)
+
+    def configure_ntp(self, intent: NtpIntent, payload_format: str = "xml") -> bool:
+        ntp_payload = self.translators["ntp"].translate(intent)
+        return self.transport.push_config(ntp_payload)
