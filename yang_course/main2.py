@@ -10,8 +10,6 @@ import traceback
 
 from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
-from intent.interface import InterfaceIntent
-from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent, OspfAreaIntent, OspfInterfaceIntent
 
 from registry import TRANSLATORS, ORCHESTRATORS
@@ -71,6 +69,7 @@ def main():
                     ]
                 elif intent_type == "protocols":
                     new_intents["protocols"] = {}
+                    
                     for protocol_type, instances_data in intents_data.items():
                         if protocol_type == "ospf":
                             ospf_intents = []
@@ -91,10 +90,19 @@ def main():
                                     network_instance=ospf_data["network_instance"],
                                     router_id=ospf_data.get("router_id"),
                                     areas=areas,
-                                    # export_policies=ospf_data.get("export_policies", []),
-                                    # import_policies=ospf_data.get("import_policies", [])
                                 ))
                             new_intents["protocols"]["ospf"] = ospf_intents
+                        
+                        # Add other protocol types here (bgp, isis, etc.)
+                        # elif protocol_type == "bgp":
+                        #     bgp_intents = []
+                        #     for bgp_data in instances_data:
+                        #         neighbors = [
+                        #             BgpNeighborIntent(**n) for n in bgp_data.get("neighbors", [])
+                        #         ]
+                        #         bgp_intents.append(BgpIntent(...))
+                        #     new_intents["protocols"]["bgp"] = bgp_intents
+                        
                 # Add other intent types here
             device["intents"] = new_intents
         DEVICE_REGISTRY.append(device)
@@ -111,7 +119,7 @@ def main():
         # --- Dynamic Transport Instantiation ---
         transport = TransportClass(
             host=device["host"],
-            username=device.get("username", os.getenv("DEFAULT_USERNAME")), # Add default user
+            username=device.get("username", os.getenv("DEFAULT_USERNAME")),
             password=passwords.get(device["vendor"]),
         )
 
@@ -121,7 +129,11 @@ def main():
         orchestrator.bootstrap()
         print(f"  ✓ Bootstrap complete")
 
+        # Configure interfaces and network instances first
         for intent_type, intents in device["intents"].items():
+            if intent_type == "protocols":
+                continue  # Handle protocols separately below
+                
             method_name = intent_method_map.get(intent_type)
             if not method_name:
                 print(f"  ✗ No method for intent: {intent_type}")
@@ -133,14 +145,32 @@ def main():
                 continue
 
             try:
-                # --- Pass the payload_format to the orchestrator ---
-                # This assumes the orchestrator methods will pass it down to the translators
                 configure_method(intents, payload_format=payload_format)
                 print(f"  ✓ {device['host']} — {intent_type} configured")
             except Exception as e:
-                print(f"  ✗ Failed to configure {device['host']}: {str(e)}")
+                print(f"  ✗ Failed to configure {device['host']} {intent_type}: {str(e)}")
                 traceback.print_exc()
                 continue
+
+        # Now configure protocols (must come after interfaces)
+        protocols = device["intents"].get("protocols", {})
+        
+        for ospf_intent in protocols.get("ospf", []):
+            try:
+                orchestrator.configure_ospf(ospf_intent, payload_format=payload_format)
+                print(f"  ✓ OSPF instance '{ospf_intent.name}' in {ospf_intent.network_instance}")
+            except Exception as e:
+                print(f"  ✗ Failed to configure OSPF '{ospf_intent.name}': {str(e)}")
+                traceback.print_exc()
+        
+        # Add other protocol handlers here
+        # for bgp_intent in protocols.get("bgp", []):
+        #     try:
+        #         orchestrator.configure_bgp(bgp_intent, payload_format=payload_format)
+        #         print(f"  ✓ BGP AS {bgp_intent.as_number} in {bgp_intent.network_instance}")
+        #     except Exception as e:
+        #         print(f"  ✗ Failed to configure BGP: {str(e)}")
+        #         traceback.print_exc()
 
 
 if __name__ == "__main__":

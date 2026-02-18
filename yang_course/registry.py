@@ -10,7 +10,7 @@ from translation.srlinux.ni_interface import NiInterfaceBindingTranslator
 TRANSLATORS = {
     "ceos": {
         "interface": CeosInterfaceTranslator(),
-        "global": CeosGlobalRoutingTranslator(),
+        # "global": CeosGlobalRoutingTranslator(),
     },
     "srlinux": {
         "subinterface": SrlinuxSubinterfaceTranslator(),

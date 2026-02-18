@@ -9,6 +9,7 @@ This course teaches you how to configure network devices using YANG data models 
 All labs in this course are built on Containerlab, an open-source network emulation platform that spins up virtual instances of Nokia SR-Linux and Arista cEOS on your laptop. You are encouraged to complete every lab on your own first before teaching it, so that you experience the discovery and debugging process firsthand. That hands-on friction is where the real learning happens.
 
 # How to Use This Course
+
 Each module introduces a concept, explains the theory, and then provides a worked lab exercise using Containerlab. Complete the labs in order — each one builds directly on the previous. Code samples are illustrative; the goal is to understand the pattern, not copy-paste the snippet.
 
 # Prerequisites
@@ -21,6 +22,7 @@ Each module introduces a concept, explains the theory, and then provides a worke
 # Learning Objectives
 
 By the end of this course, students will be able to:
+
 1.	Explain what YANG is and how it relates to NETCONF and gNMI
 2.	Discover and navigate YANG models using pyang and device RPCs
 3.	Build XML and JSON payloads that target specific YANG paths
@@ -30,16 +32,18 @@ By the end of this course, students will be able to:
 7.	Extend a working codebase to cover interfaces, NTP, and SNMP
 8.	Test all workflows against virtual devices in Containerlab before touching production
  
-# Module 1: The Mental Model — You Are Not Writing Config
+# Module 1: The Mental Model
 
 The single most important shift in moving to model-driven automation is conceptual. When you type commands into a CLI, you are constructing vendor-specific syntax that the device parses into an internal data structure. Model-driven automation skips the middle step: you write directly to that data structure. The CLI is merely one serialization of that structure. YANG, NETCONF, and gNMI give you direct access to the model itself.
 
 ## What is YANG?
+
 YANG (Yet Another Next Generation) is a data modelling language defined in RFC 6020 and revised in RFC 7950. It describes the structure, types, constraints, and relationships of configuration and operational data for network devices. Think of a YANG model the way you would think of a database schema: it defines what data exists, what type each field must be, which fields are mandatory, and how data elements relate to each other.
 
-A YANG model does NOT contain any configuration values. It only describes the shape of the data. The values — your router ID, your OSPF area, your interface IP — are provided separately in an XML or JSON document that conforms to the model.
+A YANG model does NOT contain any configuration values. It only describes the shape of the data. The values: your router ID, your OSPF area, your interface IP, are provided separately in an XML or JSON document that conforms to the model.
 
 ## Key Analogy
+
 YANG is to network configuration what JSON Schema is to a REST API body. It defines what valid data looks like. NETCONF and gNMI are the HTTP equivalents — the transports that carry your data to and from the device.
 
 ## The Three Pillars
@@ -70,9 +74,11 @@ Why This Matters for Automation
 - The network becomes programmable in the same way a database or REST API is programmable
  
 # Module 2: Setting Up Your Lab Environment with Containerlab
+
 Before touching a real device, every workflow in this course must be tested in a virtual lab. Containerlab is an open-source tool that defines network topologies in a simple YAML file and runs them as Docker containers. Nokia SR-Linux and Arista cEOS images are freely available and both have excellent NETCONF and gNMI support, making them ideal targets for this course.
 
 ## Installing Containerlab
+
 Containerlab requires Docker and a Linux environment (native Linux or WSL2 on Windows). Install it with the single-line installer from the official documentation:
 
 ```bash
@@ -81,50 +87,33 @@ bash -c "$(curl -sL https://get.containerlab.dev)"
 ```
 
 ## Installing Python Packages
-We recommend using Python virtual environment
+
+I recommend using Python virtual environment:
 
 ```bash
-sudo apt-get install python3.10-venv
-python3 -m venv .ylab
-source .ylab/bin/activate
+$ sudo apt-get install python3.10-venv
+$ python3 -m venv .ylab
+$ source .ylab/bin/activate
 ```
 
 ```bash
-pip install six
-pip install netconf-console2
-pip install pyang
+$ pip install six
+$ pip install netconf-console2
+$ pip install pyang
+...
 ```
 
 ### Defining a Topology
 
-A Containerlab topology is a YAML file. The example below creates a two-node lab with one Nokia SR-Linux router and one Arista cEOS router connected back-to-back. This is your primary lab environment for the entire course:
+A Containerlab topology is a YAML file. The example below creates a three-node lab with two Nokia SR-Linux router and one Arista cEOS router connected in a ring. This is your primary lab environment for the entire course:
 
-*topology.yml*
-
-```
-name: yang-course
-
-topology:
-  nodes:
-    srlinux:
-      kind: nokia_srlinux
-      image: ghcr.io/nokia/srlinux:latest
-    ceos:
-      kind: arista_ceos
-      image: ceos:latest
-
-  links:
-    - endpoints: ["srlinux:e1-1", "ceos:eth1"]
-```
 
 Start the lab with:
 
 ```
-sudo containerlab deploy -t topology.yml
+sudo containerlab deploy [-t yang.clab.yml]
 ```
 
-> Instructor Note
-Have students verify NETCONF connectivity immediately after deploying the lab using a simple ncclient get_capabilities() call. This confirms SSH is reachable, credentials are correct, and the device is advertising NETCONF support before any config work begins.
 
 ### Verifying NETCONF Connectivity
 
@@ -142,10 +131,10 @@ ssh admin@ceos-01 -p 830 -s netconf
 ssh admin@srl-01 -p 830 -s netconf
 ```
 
-> What Both Commands Are Actually Doing
-NETCONF is always transported over SSH. Specifically, it uses SSH's subsystem mechanism, named 'netconf'. So both commands above are ultimately opening an SSH connection and requesting the netconf subsystem. The difference is only in who is doing the SSH work.
-netconf-console2 is a dedicated NETCONF client. It handles the SSH transport internally, sends a proper NETCONF <hello> message with its own capabilities, waits for the device's <hello> in response, and then presents the result to you cleanly. It understands the NETCONF framing protocol (the ]]>]]> end-of-message marker in NETCONF 1.0, or chunked framing in 1.1).
-ssh -s netconf is raw SSH. It opens the subsystem channel but does nothing after that. You are dropped directly into the NETCONF session at the XML layer. The device sends its <hello> message immediately, and then waits for yours. If you just sit there, nothing further happens — you would need to type raw XML to continue. It is useful for confirming the port is open and the device is responding, but it is not a practical way to send operations.
+> **What Both Commands Are Actually Doing**  
+NETCONF is always transported over SSH. Specifically, it uses SSH's subsystem mechanism, named 'netconf'. So both commands above are ultimately opening an SSH connection and requesting the netconf subsystem. The difference is only in who is doing the SSH work.  
+`netconf-console2` is a dedicated NETCONF client. It handles the SSH transport internally, sends a proper NETCONF <hello> message with its own capabilities, waits for the device's <hello> in response, and then presents the result to you cleanly. It understands the NETCONF framing protocol (the ]]>]]> end-of-message marker in NETCONF 1.0, or chunked framing in 1.1).  
+`ssh -s netconf` is raw SSH. It opens the subsystem channel but does nothing after that. You are dropped directly into the NETCONF session at the XML layer. The device sends its <hello> message immediately, and then waits for yours. If you just sit there, nothing further happens — you would need to type raw XML to continue. It is useful for confirming the port is open and the device is responding, but it is not a practical way to send operations.
 
 
 
@@ -202,6 +191,39 @@ urn:ietf:params:xml:ns:yang:ietf-interfaces?module=ietf-interfaces&revision=2014
 Note the revision date — always use models that match this exact revision when building payloads.
 
 
+**Using gNMI and gNMic**
+
+
+```python
+from pygnmi.client import gNMIclient
+
+# Create gNMI client connection
+with gNMIclient(**ceos_params) as gc:
+
+    # Retrieve capabilities
+    capabilities = gc.capabilities()
+
+    caps = [
+        f'{c["name"]}, {c["organization"]}, {c["version"]}'
+        for c in capabilities["supported_models"]
+    ]
+    for cap in sorted(caps):
+        print(cap)
+```
+
+or use gNMIc:
+
+```bash
+# Download gNMIc
+$ bash -c "$(curl -sL https://get-gnmic.openconfig.net)"
+
+gnmic -a ceos-01:6030 -u admin -p admin --insecure capabilities
+gnmic -a srl-01 -u admin -p NokiaSrl1! --skip-verify capabilities
+```
+
+> **gNMIc (pronounced gee·en·em·eye·see)**  
+is a powerful, open-source command-line client and collector for the gRPC Network Management Interface (gNMI) protocol, originally developed by Nokia and contributed to the OpenConfig project. It serves as a comprehensive tool for interacting with modern network devices, offering full support for all core gNMI RPCs (Capabilities, Get, Set, and Subscribe) to both retrieve and modify configuration and operational state data. Beyond its function as a CLI client, gNMIc can be deployed as a flexible, scalable, and highly available telemetry collector that subscribes to streaming data from network targets and can output to multiple destinations like Kafka, Prometheus, and InfluxDB, often with built-in data transformation capabilities.
+
 ## Technique 2: Fetch the Schema
 
 Once you know which modules the device supports, you can pull the actual YANG source files directly from the device using the `get-schema` NETCONF RPC. This guarantees you have the exact model version the device is running, not a version from a public repository that may differ:
@@ -243,7 +265,16 @@ module: ietf-interfaces
 
 The `+--rw` prefix means read-write (configurable). `+--ro` means read-only (operational state). A `*` after the node name means it is a list (multiple entries). A `?` means the field is optional. These symbols tell you exactly what your payload must and can include.
 
+For some modules, you will need to download the dependencies first:
+
+```bash
+$ git clone https://github.com/openconfig/public openconfig
+$ pyang -f tree -p openconfig arista-intf-augments.yang
+```
+
+
 ## Technique 4: The Reverse Engineering Discipline
+
 A reliable and fast path to a working payload is to configure the feature manually via CLI first, then use a NETCONF `get-config` to read back exactly how the device represents that configuration in YANG. This approach is especially valuable when vendor documentation is unclear or when you are working with a native model for the first time:
 
 ```python
@@ -253,123 +284,69 @@ with manager.connect(**conn_params) as m:
     print(config.data_xml)
 ```
 
-
 Read the output carefully. The namespace declarations, element names, and hierarchy you see in that XML are exactly what your payload must reproduce. Save this output as a reference alongside the `pyang` tree.
 
 ### Lab Exercise 1: Discover the Interface Model
 
-Deploy your Containerlab topology. Configure one interface with an IP address manually using the device CLI. Then perform a `get-config` and locate the interface configuration in the XML output. Cross-reference it with the `pyang` tree for ietf-interfaces and openconfig-if-ip. Document the exact YANG path and namespace you will need to construct a payload for this interface.
- 
+Deploy your `Containerlab` topology. Configure one interface with an IP address manually using the device CLI. Then perform a `get-config` and locate the interface configuration in the XML output. Cross-reference it with the `pyang` tree for *ietf-interfaces* and *openconfig-if-ip*. Document the exact YANG path and namespace you will need to construct a payload for this interface.
+
 > Note that SR-Linux requires that you you configure at least one sub-interface and the sub-interface must be associated with a network-instance (i.e. VRF). cEOS creates the subinterface 0 by default. Both follow the convention of OpenConfig YANG models.  
-
-```bash
-        <interface xmlns="urn:nokia.com:srlinux:chassis:interfaces">
-            <n>ethernet-1/1</n>
-            <description>To ceos-01</description>
-            <admin-state>enable</admin-state>
-            <subinterface>
-                <index>0</index>
-                <ipv4>
-                    <address>
-                        <ip-prefix>192.168.1.1/24</ip-prefix>
-                        <primary/>
-                    </address>
-                </ipv4>
-            </subinterface>
-        </interface>
-        ...
-        <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
-            <n>vrf1</n>
-            <interface>
-                <n>ethernet-1/1.0</n>
-            </interface>
-        </network-instance>
-```
-
-```
-module: ietf-interfaces
-  +--rw interfaces
-  |  +--rw interface* [name]
-  |     +--rw name                        string
-  |     +--rw description?                string
-  |     +--rw type                        identityref
-  |     +--rw enabled?                    boolean
-  |     +--rw link-up-down-trap-enable?   enumeration {if-mib}?
-```
-
-For the IP module, you will need to download the dependencies first:
-
-```bash
-$ git clone https://github.com/openconfig/public openconfig
-```
-
-
-```bash
-pyang -f tree openconfig-if-ip.yang -p openconfig
-module: openconfig-if-ip
-
-  augment /oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/oc-if:subinterface:
-    +--rw ipv4
-       +--rw addresses
-       |  +--rw address* [ip]
-       |     +--rw ip        -> ../config/ip
-       |     +--rw config
-       |     |  +--rw ip?              oc-inet:ipv4-address
-       |     |  +--rw prefix-length?   uint8
-       |     |  +--rw type?            ipv4-address-type
-```
-
-<!--
-```
- pyang -f tree -p openconfig  openconfig-if-ip.yang --tree-path addresses --tree-depth 5
-```
--->
-
 
 ## Module 4: The Four-Layer Software Architecture
 
 The fundamental design mistake in network automation is mixing what you want to configure, how it is represented in YANG, and how it is delivered over the wire into a single block of code. This creates brittle, unportable code. A properly layered architecture solves this by giving each concern its own isolated layer, so a change in one never requires a change in the others.
 
-### The Discovery: Two Types of Vendor Differences
+### Insight: Three Types of Vendor Differences
 
 As you work through Lab Exercise 1, you will encounter a critical insight that shapes the entire architecture. When you manually configure an interface on both SR-Linux and cEOS and then examine the YANG representation, you'll notice something important:
 
-**On cEOS (Arista):**
+**On Arista cEOS:**
 ```bash
 # Configure an interface
 interface Ethernet1
-  no switchport
-  ip address 192.168.1.2 255.255.255.0
-  description To SRL
+   description To SRL-01
+   no switchport
+   ip address 192.168.1.2/31
 ```
 
-A `get-config` reveals the device represents this as a straightforward structure — the interface, its IP, and its description appear in the expected locations within the OpenConfig interface model.
-
-**On SR-Linux (Nokia):**
+**On Nokia SR-Linux:**
 ```bash
 # Configure an interface
-set / interface ethernet-1/1 subinterface 0 ipv4 address 192.168.1.1/24
 set / interface ethernet-1/1 admin-state enable
+set / interface ethernet-1/1 subinterface 0 admin-state enable
+set / interface ethernet-1/1 subinterface 0 ipv4 admin-state enable
+set / interface ethernet-1/1 subinterface 0 ipv4 address 192.168.1.3/31
 set / network-instance default interface ethernet-1/1.0
 ```
 
-A `get-config` reveals something more complex: the device requires **three separate configuration objects** — a subinterface, a network-instance definition, and a binding between them. Moreover, these must be configured **in a specific order**. If you try to bind a subinterface to a network-instance before the subinterface exists, the operation fails.
+A `get-config` for both devices reveals identical structure that includes the interface, its IPv4 address , and its description in the expected locations within the OpenConfig interface model.
+
+However, configuring SRLinux interface via the CLI or using YANG is more complex. The device requires three separate configuration objects: a subinterface, a network-instance, and a binding between them. Moreover, these must be configured in a specific order, subinterface followed by binding before. If you try to bind a subinterface to a network-instance before the subinterface exists, the commit operation fails.
+
+Although Arista cEOS implements the same OpenConfig YANG model, the subinterface creation (index 0) and binding to network instance (default) occurs automatcally. 
 
 This reveals two fundamentally different types of vendor differences:
 
-**Type 1 — Model Differences (Translation Problem):**
+**Type 1: Model Differences (Translation Problem):**
+
 - Same feature, different YANG representation
 - Example: Interface description is a `<description>` leaf in OpenConfig but a `<desc>` leaf in some native models
 - Solution: Different translator classes that render the same intent into vendor-specific XML
 
-**Type 2 — Operational Differences (Orchestration Problem):**
+**Type 2: Operational Differences (Orchestration Problem):**
+
 - Same goal, different sequence of prerequisite operations
-- Example: SR-Linux requires creating network-instance before binding interfaces; cEOS does not
+- Example: SR-Linux requires binding subinterface to network-instance before; cEOS does not
 - Solution: An orchestration layer that knows the correct recipe for each vendor
 
-The three-layer architecture handles Type 1 differences elegantly. But Type 2 differences expose a gap: no amount of payload translation can fix a missing prerequisite. The device will reject the configuration not because the XML is wrong, but because you attempted steps in the wrong order.
+**Type 3: Support Differences (Support Problem):**
 
-This is why we need a fourth layer.
+- Feature not exposed in any YANG model
+- Example: cEOS interfaces defaults to layer 2 switching mode and IP routing is disabled by default
+- Solution: Manual configuration using CLI (`no switchport`)
+
+A four-layer architecture handles Type 1 and Type 2 differences adequately.
+
 
 ### The Four-Layer Architecture
 
@@ -398,8 +375,8 @@ This is why we need a fourth layer.
 
 Layer | Responsibility
 ---|------
-Intent Layer | Expresses what you want in pure business terms, independent of any protocol or vendor details. Can be expressed by Python dataclasses and easily readable by a network engineer.
-Orchestration Layer | Knows the correct sequence of operations for each vendor. Resolves prerequisite dependencies and ensures operations execute in the correct order. One orchestrator class per vendor.
+Intent Layer | Expresses what you want in abstract terms, independent of any protocol or vendor details. Can be expressed by Python dataclasses or YAML file and easily readable by a network engineer.
+Orchestration Layer | Knows the correct mix of operations for each vendor. Resolves prerequisite dependencies and ensures operations execute in the correct order. One orchestrator class per vendor.
 Translation Layer | Maps an Intent object onto a specific YANG model and renders it as an XML or JSON payload. This is where model differences are handled. One translator class per feature per vendor.
 Transport Layer | Delivers payloads to the device over NETCONF or gNMI. Manages connections, handles datastores, commits, and rollbacks. Has no knowledge of what the payload contains.
 
@@ -418,59 +395,19 @@ class InterfaceIntent:
     ip_address: str        # e.g. '192.168.1.1'
     prefix_length: int     # e.g. 24
     enabled: bool = True
-    mtu: int = 1500
-    # SR-Linux specific — ignored by cEOS orchestrator
     subinterface_index: int = 0
     network_instance: str = 'default'
+    ...
+    ...
 ```
 
 The power of this layer is in its readability. A network engineer can review this class and instantly understand what parameters drive the deployment, without reading a single line of XML or YANG.
 
 Note that `subinterface_index` and `network_instance` fields are required by SR-Linux but cEOS doesn't need them. The intent class includes them, but each orchestrator decides which fields to use.
 
-**Adding More Intent Classes**
-
-As your automation grows to cover more features, you add one dataclass per concern. Each one remains small and focused. Here are additional intent classes that will be used by orchestrators:
-
-```python
-@dataclass
-class NetworkInstanceIntent:
-    name: str                        # 'default', 'MGMT', custom VRF name
-    type: str = 'ip_vrf'
-    description: str = ''
-
-@dataclass
-class NiInterfaceBindingIntent:
-    network_instance: str
-    interface: str                   # parent interface name
-    subinterface: int = 0            # subinterface index
-
-@dataclass
-class OspfIntent:
-    process_id: int          # e.g. 1
-    area_id: str             # e.g. '0.0.0.0' for the backbone
-    router_id: str           # e.g. '10.255.255.1'
-    interfaces: List[str]    # e.g. ['eth1', 'eth2']
-    passive_interfaces: List[str] = field(default_factory=list)
-    redistribute_connected: bool = False
-
-@dataclass
-class NtpIntent:
-    servers: List[str]     # list of NTP server IPs
-    source_interface: str
-
-@dataclass
-class SnmpIntent:
-    version: str           # 'v2c' or 'v3'
-    community: str         # v2c community string
-    trap_destinations: List[str]
-    location: str
-    contact: str
-```
-
 **The Orchestration Layer**
 
-An orchestrator knows the recipe for achieving a working configuration on each vendor — the correct sequence of payloads, in the correct order, with the correct dependencies resolved before each step.
+An orchestrator knows the recipe for achieving a working configuration on each vendor: the correct mix of payloads, in the correct order, with the correct dependencies resolved before each step.
 
 Each vendor gets its own orchestrator class:
 
@@ -494,73 +431,6 @@ class DeviceOrchestrator(ABC):
     def bootstrap(self) -> bool:
         """Apply any one-time prerequisites the device needs."""
         pass
-```
-
-**cEOS Orchestrator — Simple Sequence**
-
-Arista cEOS has minimal prerequisites. Once IP routing is enabled globally (a one-time bootstrap step), interfaces can be configured independently:
-
-```python
-class CeosOrchestrator(DeviceOrchestrator):
-    """
-    cEOS recipe:
-    1. Enable ip routing (bootstrap, once per device)
-    2. Push interface + IP in a single payload
-    """
-    def bootstrap(self) -> bool:
-        # ip routing is a global prerequisite on cEOS
-        payload = self.translators['global'].translate_routing(
-            GlobalRoutingIntent(enabled=True)
-        )
-        return self.transport.push_config(payload)
-
-    def configure_interface(self, intent: InterfaceIntent) -> bool:
-        # Single payload covers interface + IP + implicit no switchport
-        payload = self.translators['interface'].translate(intent)
-        return self.transport.push_config(payload)
-```
-
-**SR-Linux Orchestrator — Complex Dependencies**
-
-SR-Linux requires three sequential operations. The orchestrator ensures they happen in the correct order:
-
-```python
-class SrlinuxOrchestrator(DeviceOrchestrator):
-    """
-    SR-Linux recipe:
-    1. Create subinterface on the parent interface
-    2. Create or verify network-instance exists
-    3. Bind subinterface to network-instance
-    All three must succeed in order.
-    """
-    def bootstrap(self) -> bool:
-        # SR-Linux has a default network-instance already
-        # but we verify it exists before proceeding
-        return True
-
-    def configure_interface(self, intent: InterfaceIntent) -> bool:
-        # Step 1: Create the subinterface with IP
-        subif_payload = self.translators['subinterface'].translate(intent)
-        self.transport.push_config(subif_payload)
-
-        # Step 2: Ensure the network-instance exists
-        ni_payload = self.translators['network_instance'].translate(
-            NetworkInstanceIntent(
-                name=intent.network_instance,
-                type='L3'
-            )
-        )
-        self.transport.push_config(ni_payload)
-
-        # Step 3: Bind subinterface to network-instance
-        binding_payload = self.translators['ni_interface'].translate(
-            NiInterfaceBindingIntent(
-                network_instance=intent.network_instance,
-                interface=intent.name,
-                subinterface=intent.subinterface_index
-            )
-        )
-        return self.transport.push_config(binding_payload)
 ```
 
 **The Translation Layer**
@@ -595,64 +465,8 @@ class IetfInterfaceTranslator:
         return self.TEMPLATE.render(**intent.__dict__)
 ```
 
-Here are the additional translators needed for SR-Linux orchestration:
-
-```python
-class SrlinuxSubinterfaceTranslator:
-    TEMPLATE = Template('''
-    <config>
-      <interface xmlns="urn:nokia.com:srlinux:chassis:interfaces">
-        <n>{{ name }}</n>
-        <description>{{ description }}</description>
-        <admin-state>{{ 'enable' if enabled else 'disable' }}</admin-state>
-        <subinterface>
-          <index>{{ subinterface_index }}</index>
-          <ipv4>
-            <address>
-              <ip-prefix>{{ ip_address }}/{{ prefix_length }}</ip-prefix>
-              <primary/>
-            </address>
-          </ipv4>
-        </subinterface>
-      </interface>
-    </config>''')
-
-    def translate(self, intent: InterfaceIntent) -> str:
-        return self.TEMPLATE.render(**intent.__dict__)
-
-
-class SrlinuxNetworkInstanceTranslator:
-    TEMPLATE = Template('''
-    <config>
-      <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
-        <n>{{ name }}</n>
-        <type>{{ type }}</type>
-        {% if description %}
-        <description>{{ description }}</description>
-        {% endif %}
-      </network-instance>
-    </config>''')
-
-    def translate(self, intent: NetworkInstanceIntent) -> str:
-        return self.TEMPLATE.render(**intent.__dict__)
-
-
-class SrlinuxNiInterfaceBindingTranslator:
-    TEMPLATE = Template('''
-    <config>
-      <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
-        <n>{{ network_instance }}</n>
-        <interface>
-          <n>{{ interface }}.{{ subinterface }}</n>
-        </interface>
-      </network-instance>
-    </config>''')
-
-    def translate(self, intent: NiInterfaceBindingIntent) -> str:
-        return self.TEMPLATE.render(**intent.__dict__)
-```
-
-> **Avoid CLI Leakage**: Never embed vendor-specific CLI strings inside a Jinja2 template. A string like 'ip address 192.168.1.1 255.255.255.0' inside your XML payload is called CLI leakage. It destroys portability because you are mixing two config paradigms. The payload must contain only element names and values from the YANG model.
+> **Avoid CLI Leakage**  
+Never embed vendor-specific CLI strings inside a Jinja2 template. A string like 'ip address 192.168.1.1 255.255.255.0' inside your XML payload is called CLI leakage. It destroys portability because you are mixing two config paradigms. The payload must contain only element names and values from the YANG model.
 
 **The Transport Layer**
 
@@ -684,6 +498,7 @@ class NetconfTransport:
             if confirmed:
                 m.commit(confirmed=True,
                          timeout=str(timeout))
+                m.commit()
             else:
                 m.commit()
             return True
@@ -696,12 +511,10 @@ Each vendor now has its own set of translators and its own orchestrator class:
 ```python
 TRANSLATORS = {
     'ceos': {
-        'interface':         OpenConfigInterfaceTranslator(),
-        'global':            CeosGlobalRoutingTranslator(),
+        'interface':         CeosInterfaceTranslator(),
     },
     'srlinux': {
         'subinterface':      SrlinuxSubinterfaceTranslator(),
-        'network_instance':  SrlinuxNetworkInstanceTranslator(),
         'ni_interface':      SrlinuxNiInterfaceBindingTranslator(),
     }
 }
@@ -766,29 +579,27 @@ provision_all()
 
 **The Impact Matrix**
 
-The real payoff of this architecture becomes clear when you need to make changes. Notice how each type of change is completely contained within one layer:
+The real payoff of this architecture becomes clear when you need to make changes. Notice how each type of change affects each layer below. Often, the changes is completely contained within one layer:
 
 | Change needed | Intent | Orchestration | Translation | Transport |
 |---|---|---|---|---|
 | Add new vendor | Maybe new fields | New orchestrator class | New translators | No change |
-| SR-Linux changes NI binding sequence | No change | Update SrlinuxOrchestrator | No change | No change |
-| cEOS drops the routing prerequisite | No change | Update CeosOrchestrator | No change | No change |
 | Add IPv6 support | Add IPv6 fields | Minor update | New template | No change |
 | Switch to gNMI transport | No change | No change | No change | New transport class |
 | Upgrade YANG model version | No change | No change | Update template | No change |
-| Add NTP to all devices | New Intent | Add to orchestrator | New translator | No change |
+| Add NTP | New Intent | Add to orchestrator | New translator | No change |
 
 
 ### Lab Exercise 2: Build Your First Translator and Orchestrator
 
-Write an InterfaceIntent dataclass and an IetfInterfaceTranslator for your SR-Linux node. Use the YANG path you discovered in Lab 1. Then write a `SrlinuxOrchestrator` that sequences the three required operations: subinterface creation, network-instance verification, and interface binding.
+Write an `InterfaceIntent` dataclass and an `SrlinuxSubinterfaceTranslator` for your SR-Linux node. Use the YANG path you discovered in Lab 1. Then write a `SrlinuxOrchestrator` that sequences the three required operations: subinterface creation and network-instance-interface binding.
 
 Push the configuration using the NetconfTransport class and verify it with a `get-config` call. Then write a `CeosOrchestrator` and `CeosInterfaceTranslator` and push the same intent to the cEOS node. Observe that the intent object is identical; only the orchestrator and translator classes change.
 
  
 # Module 5: Safe Configuration Delivery
 
-Writing the correct payload is only half the problem. Delivering it safely — in a way that is atomic, reversible, and validated before it takes effect — is equally important. NETCONF's datastore model gives you the tools to do this correctly. Using them is not optional in production environments.
+Writing the correct payload is only half the problem. Delivering it safely, in a way that is atomic, reversible, and validated before it takes effect, is equally important. NETCONF's datastore model gives you the tools to do this correctly. Using them is not optional in production environments.
 
 ## The NETCONF Datastore Model
 
@@ -798,7 +609,7 @@ Datastore | Purpose
 ---|-------
 running | The active configuration currently in use by the device. Changes here take effect immediately. Direct writes to running should be avoided in production.
 candidate | A staging area for changes. You can write, validate, and test here without affecting the live device. The candidate is promoted to running only on explicit commit.
-startup | The configuration loaded on boot. Not all devices implement this. Relevant for ensuring changes persist across a reboot.
+startup | The configuration loaded on boot. Relevant for ensuring changes persist across a reboot.
 
 ## The Get-Before-Set Pattern
 
@@ -808,15 +619,13 @@ Inspect current_state before building your edit payload:
 
 ```
 INTERFACE_FILTER = '''
-  <interfaces xmlns='urn:ietf:params:xml:ns:yang:ietf-interfaces'>
-    <interface><n>eth1</n></interface>
+  <interfaces xmlns="http://openconfig.net/yang/interfaces">
+    <interface>Eternet1</n></interface>
   </interfaces>
 '''
 
 current_state = transport.get_config(INTERFACE_FILTER)
 ```
-
-
 
 ## The Candidate, Validate, Commit Sequence
 
@@ -840,17 +649,16 @@ m.commit(confirmed=True, timeout='120')
 m.commit()
 ```
 
-> **Production Rule**
+> **Production Rule**  
 Always use confirmed-commit in production. The two-minute timeout is a seatbelt: the cost of sending one extra commit() call is trivial; the cost of a wrong config locking you out of a core router is not. Build the confirming commit into your verification step so it only fires after your validation checks pass.
 
 **Offline Validation with yanglint**
 
 Before a payload ever touches a device, you can validate it locally against the YANG schema using yanglint. This catches structural errors, missing mandatory fields, and type mismatches without consuming a device connection:
 
-```
+```bash
 # Install libyang (provides yanglint)
-apt install libyang-tools   # Ubuntu/Debian
-brew install libyang        # macOS
+sudo apt-get install libyang-tools   # Ubuntu/Debian
 
 # Validate your payload XML against the schema
 yanglint ietf-interfaces.yang payload.xml
@@ -861,7 +669,7 @@ yanglint ietf-interfaces.yang payload.xml
 
 Take the orchestrator you built in Lab 2 and wrap it in the full candidate/validate/confirmed-commit sequence. Deliberately introduce an error into your payload (use an invalid IP address format or omit a mandatory field) and observe how `yanglint` and the device's validation catch it at different stages. Verify that the running config is unchanged after a failed validation.
  
-# Module 6: Extending the Framework to Interfaces, NTP, and SNMP
+# Module 6: Extending the Framework to OSPF, NTP, and SNMP
 
 With the four-layer architecture and the safe delivery workflow established, extending your automation to new features follows a predictable, repeatable pattern. This module walks through the high-level approach for the most common infrastructure features, highlighting the key YANG models and the practical challenges you will encounter for each.
 
@@ -869,11 +677,50 @@ With the four-layer architecture and the safe delivery workflow established, ext
 
 For every new feature, follow the same steps before writing any code:
 
-1. Discover: run `pyang` on the relevant YANG model and read the tree
+1. Discover: find the relevant YANG model, run `pyang` on the relevant YANG model and read the tree
 2. Reverse-engineer: configure the feature via CLI, then get-config to see its YANG representation
 3. Add an Intent class: write a dataclass that captures the parameters a network engineer would care about
 4. Write translators: one translator class per vendor, per feature, mapping the intent to the correct YANG path
 5. Update orchestrators: if the feature has vendor-specific sequencing requirements, update the orchestrator's workflow
+
+**Example**
+
+```bash
+$ python3 get_capabilties.py | grep ospf
+urn:nokia.com:srlinux:ospf:ospf?module=srl_nokia-ospf&revision=2025-10-31
+
+$ python3 get_schema.py srl srl_nokia-ospf nokia
+$ pyang -f tree -p srlinux nokia/srl_nokia-ospf.yang
+```
+
+```bash
+enter candidate
+
+set / interface system0 subinterface 0 ipv4 admin-state enable
+set / interface system0 subinterface 0 ipv4 address 10.0.0.1/32
+set / network-instance default interface system0.0
+set / network-instance default protocols ospf instance main version ospf-v2
+set / network-instance default protocols ospf instance main admin-state enable
+set / network-instance default protocols ospf instance main router-id 10.0.0.1
+set / network-instance default protocols ospf instance main area 0.0.0.0
+set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/1.0
+set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/1.0 admin-state enable
+set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/2.0
+set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/2.0 admin-state enable
+
+commit now
+```
+
+```
+SRL_OSPF = """
+<network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
+    <protocols>
+        <ospf xmlns="urn:nokia.com:srlinux:ospf:ospf"/>
+    </protocols>
+</network-instance>
+"""
+```
+
 
 **Interface Configuration**
 

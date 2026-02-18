@@ -47,3 +47,6 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
                     return False
             return True
         return False
+
+    def configure_ospf(self, intent: OSPFIntent, payload_format: str = 'xml') -> bool:
+        pass

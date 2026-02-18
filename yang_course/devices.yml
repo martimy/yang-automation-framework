@@ -29,7 +29,18 @@
         prefix_length: 31
         subinterface: 0
         network_instance: default
-
+    protocols:
+      ospf:
+        - name: main
+          network_instance: default
+          router_id: 10.0.0.1
+          areas:
+            - id: 0.0.0.0
+              interfaces:
+                - name: ethernet-1/1.0
+                  enabled: true
+                - name: ethernet-1/2.0
+                  enabled: true
 - host: srl-02
   vendor: srlinux
   username: admin
