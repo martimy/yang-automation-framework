@@ -1,8 +1,0 @@
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"> <!--important-->
-  <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
-      <name>default</name>
-      <type>ip-vrf</type>
-      <admin-state>enable</admin-state>
-      <description>Default VRF</description>
-    </network-instance>
-</config>
