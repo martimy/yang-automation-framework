@@ -59,7 +59,7 @@ SRL_NETINSTANCE = """
 <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance"/>
 """
 
-NATIVE_FILTER = """
+ARISTA_NATIVE_FILTER = """
 <interfaces xmlns="http://arista.com/yang/openconfig/interfaces/augments">
     <interface>
         <name>Ethernet1</name>
@@ -67,12 +67,8 @@ NATIVE_FILTER = """
 </interfaces>
 """
 
-ARISTA_NATIVE_FILTER = """
-<native xmlns="http://arista.com/yang/rpc/netconf">
-    <interface>
-        <name>Ethernet1</name>
-    </interface>
-</native>
+TRY_FILTER = """
+<interfaces "http://arista.com/yang/experimental/eos/arista-interfaces-rates"/>
 """
 
 class NetconfTransport:
@@ -143,7 +139,7 @@ if __name__ == "__main__":
     transport.get_cap()
 
     print("#" * 10, "Before")
-    result = transport.get_config(ARISTA_NATIVE_FILTER)
+    result = transport.get_config(TRY_FILTER)
     pretty_print_xml(result)
 
     if len(sys.argv) < 2:

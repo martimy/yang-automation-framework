@@ -1,7 +1,6 @@
 """
 gNMI Transport Layer
 """
-import json
 from pygnmi.client import gNMIclient
 
 class GnmiTransport:

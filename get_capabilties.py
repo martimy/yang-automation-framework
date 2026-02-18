@@ -8,7 +8,7 @@ srl_params = {
     "hostkey_verify": False,
 }
 
-eos_params = {
+ceos_params = {
     "host": "ceos-01",
     "port": 830,
     "username": "admin",
@@ -18,6 +18,6 @@ eos_params = {
 
 with manager.connect(**srl_params) as m:
     # Filter for YANG model capabilities specifically
-    yang_caps = [c for c in m.server_capabilities if "module=" in c]
-    for cap in sorted(yang_caps):
+    caps = [c for c in m.server_capabilities if "module=" in c]
+    for cap in sorted(caps):
         print(cap)
