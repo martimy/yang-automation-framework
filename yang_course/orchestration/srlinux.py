@@ -1,7 +1,7 @@
 from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
 from intent.ni_interface import NiInterfaceBindingIntent
-
+from intent.ospf import OspfIntent
 
 class SrlinuxOrchestrator(DeviceOrchestrator):
     """
@@ -48,5 +48,6 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
             return True
         return False
 
-    def configure_ospf(self, intent: OSPFIntent, payload_format: str = 'xml') -> bool:
-        pass
+    def configure_ospf(self, intent: OspfIntent, payload_format: str = 'xml') -> bool:
+        ospf_payload = self.translators["ospf"].translate(intent)
+        return self.transport.push_config(ospf_payload)

@@ -11,7 +11,20 @@
         description: To SRL-02
         ip_address: 192.168.1.4
         prefix_length: 31
-
+    protocols:
+      ospf:
+        - name: 100
+          network_instance: default
+          router_id: 10.0.0.3
+          areas:
+            - id: 0.0.0.0
+              interfaces:
+                - name: Ethernet1
+                  enabled: true
+                  network_type: point_to_point_network
+                - name: Ethernet2
+                  enabled: true
+                  network_type: point_to_point_network
 - host: srl-01
   vendor: srlinux
   username: admin
@@ -21,14 +34,14 @@
         description: To cEOS-01
         ip_address: 192.168.1.3
         prefix_length: 31
-        subinterface: 0
         network_instance: default
+        subinterface: 0
       - name: ethernet-1/2
         description: To SRL-02
         ip_address: 192.168.1.7
         prefix_length: 31
-        subinterface: 0
         network_instance: default
+        subinterface: 0
     protocols:
       ospf:
         - name: main
@@ -39,8 +52,10 @@
               interfaces:
                 - name: ethernet-1/1.0
                   enabled: true
+                  network_type: point-to-point
                 - name: ethernet-1/2.0
                   enabled: true
+                  network_type: point-to-point
 - host: srl-02
   vendor: srlinux
   username: admin
@@ -50,11 +65,25 @@
         description: To cEOS-01
         ip_address: 192.168.1.5
         prefix_length: 31
-        subinterface: 0
         network_instance: default
+        subinterface: 0
       - name: ethernet-1/2
         description: To SRL-01
         ip_address: 192.168.1.6
         prefix_length: 31
-        subinterface: 0
         network_instance: default
+        subinterface: 0
+    protocols:
+      ospf:
+        - name: main
+          network_instance: default
+          router_id: 10.0.0.2
+          areas:
+            - id: 0.0.0.0
+              interfaces:
+                - name: ethernet-1/1.0
+                  enabled: true
+                  network_type: point-to-point
+                - name: ethernet-1/2.0
+                  enabled: true
+                  network_type: point-to-point

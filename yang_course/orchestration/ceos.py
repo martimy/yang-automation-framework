@@ -1,6 +1,6 @@
 from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
-
+from intent.ospf import OspfIntent
 
 class CeosOrchestrator(DeviceOrchestrator):
     """
@@ -30,3 +30,7 @@ class CeosOrchestrator(DeviceOrchestrator):
         payload = self.translators["interface"].translate_batch(intents, payload_format=payload_format)
         
         return self.transport.push_config(payload)
+
+    def configure_ospf(self, intent: OspfIntent, payload_format: str = 'xml') -> bool:
+        ospf_payload = self.translators["ospf"].translate(intent)
+        return self.transport.push_config(ospf_payload)

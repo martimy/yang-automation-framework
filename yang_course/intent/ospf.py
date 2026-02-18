@@ -7,7 +7,8 @@ class OspfInterfaceIntent:
     """Single interface enabled for OSPF in an area."""
     name: str                    # e.g. "ethernet-1/1.0" (subinterface)
     enabled: bool = True
-    # passive: bool = False
+    passive: bool = False
+    network_type: str = "point_to_point_network"
     # metric: int = None           # optional override
     # priority: int = None         # for DR election
 
@@ -27,6 +28,7 @@ class OspfIntent:
     name: str                    # process name e.g. "main"
     network_instance: str        # which VRF/network-instance
     router_id: str = None        # auto-derived if None
+    enabled: bool = True
     areas: List[OspfAreaIntent] = field(default_factory=list)
     # export_policies: List[str] = field(default_factory=list)
     # import_policies: List[str] = field(default_factory=list)

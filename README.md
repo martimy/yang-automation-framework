@@ -683,60 +683,14 @@ For every new feature, follow the same steps before writing any code:
 4. Write translators: one translator class per vendor, per feature, mapping the intent to the correct YANG path
 5. Update orchestrators: if the feature has vendor-specific sequencing requirements, update the orchestrator's workflow
 
-**Example**
 
-```bash
-$ python3 get_capabilties.py | grep ospf
-urn:nokia.com:srlinux:ospf:ospf?module=srl_nokia-ospf&revision=2025-10-31
+**OSPF Configuration**
 
-$ python3 get_schema.py srl srl_nokia-ospf nokia
-$ pyang -f tree -p srlinux nokia/srl_nokia-ospf.yang
-```
+OSPF is the first feature where you will encounter significant divergence between vendors. Artista cEOS implements the OpenConfig model (openconfig-ospf) while Nokia SR-Linux implements a Native model (srl_nokia-ospf).
 
-```bash
-enter candidate
+For your translator registry, you will need to implement a translator for each vendor. Your OspfIntent remains identical in both cases; only the translator class changes.
 
-set / interface system0 subinterface 0 ipv4 admin-state enable
-set / interface system0 subinterface 0 ipv4 address 10.0.0.1/32
-set / network-instance default interface system0.0
-set / network-instance default protocols ospf instance main version ospf-v2
-set / network-instance default protocols ospf instance main admin-state enable
-set / network-instance default protocols ospf instance main router-id 10.0.0.1
-set / network-instance default protocols ospf instance main area 0.0.0.0
-set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/1.0
-set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/1.0 admin-state enable
-set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/2.0
-set / network-instance default protocols ospf instance main area 0.0.0.0 interface ethernet-1/2.0 admin-state enable
-
-commit now
-```
-
-```
-SRL_OSPF = """
-<network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
-    <protocols>
-        <ospf xmlns="urn:nokia.com:srlinux:ospf:ospf"/>
-    </protocols>
-</network-instance>
-"""
-```
-
-
-**Interface Configuration**
-
-Interfaces are the best-supported feature across all vendors from a standards perspective. The ietf-interfaces model (RFC 7223) covers admin state, description, and MTU. IP addressing is handled by ietf-ip or openconfig-if-ip. Both models augment the interface model and are widely implemented.
-
-The enabled leaf in ietf-interfaces maps directly to the admin up/down state of an interface. It is a simple boolean, making it one of the easiest fields to automate. Setting it to true is equivalent to no shutdown in IOS or set admin-state enable in SR-Linux.
-
-Key YANG paths to memorize for interfaces:
-
-- /interfaces/interface[name]/enabled — admin state
-- /interfaces/interface[name]/description — interface description
-- /interfaces/interface[name]/ipv4/address[ip]/prefix-length — IPv4 addressing
-- /interfaces/interface[name]/ipv6/address[ip]/prefix-length — IPv6 addressing
-
->**Practical Note**
-When configuring both the interface admin state and its IP address in the same operation, include both the ietf-interfaces and ietf-ip namespaces in the same payload. They can be combined in a single edit-config call, and committing them atomically is cleaner than two separate commits.
+The main challenge in configuring OSPF is possibility to create multiple OSPF processes; each one could have multiple areas with multiple interfaces in each. Therefore, you can create a hierarchy of intents: one main intent for each OSPF process that include a list of area intents, which in turn includes a list of interface intents. 
 
 **NTP Configuration**
 
@@ -895,6 +849,14 @@ Tool | Description
 Nornir | A pure-Python automation framework with a plugin architecture. Handles inventory management, parallel task execution, and result reporting. The three-layer pattern in this course integrates naturally as Nornir tasks.
 Napalm | A vendor-neutral network automation library that abstracts common operations. Useful as a reference for how vendor abstraction is handled at scale, and supports some NETCONF operations natively.
 Ansible network modules | Ansible includes NETCONF and gNMI modules. Useful for teams already invested in Ansible, though the YAML-based playbook format makes the three-layer architecture harder to enforce cleanly.
+
+<!--
+: Other
+
+```
+xmllint --format yourfile.xml
+```
+-->
 
 
 # Appendix B: Anatomy of the XML file 
