@@ -1,0 +1,28 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
+        <name>{{ network_instance }}</name>
+        <protocols>
+            <ospf xmlns="urn:nokia.com:srlinux:ospf:ospf">
+                <instance>
+                    <name>{{ name }}</name>
+                    <admin-state>{% if enabled %}enable{% endif %}</admin-state>
+                    <version xmlns:srl_nokia-ospf-types="urn:nokia.com:srlinux:general:ospf-types">srl_nokia-ospf-types:ospf-v2</version>
+                    <router-id>{{ router_id }}</router-id>
+                    {% for area in areas %}
+                    <area>
+                        <area-id>{{ area.id }}</area-id>
+                        {% for iface in area.interfaces %}
+                        <interface>
+                            <interface-name>{{ iface.name }}</interface-name>
+                            <admin-state>{% if iface.enabled %}enable{% endif %}</admin-state>
+                            <interface-type>{{ iface.network_type | lower }}</interface-type>
+                            <passive>{{ iface.passive | lower }}</passive>
+                        </interface>
+                        {% endfor %}
+                    </area>
+                    {% endfor %}
+                </instance>
+            </ospf>
+        </protocols>
+    </network-instance>
+</config>

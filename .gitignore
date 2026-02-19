@@ -1,9 +1,9 @@
-.ylab/
-openconfig
 __pycache__
-clab-lab/
-tests/
-ietf/
-nokia/
-srlinux/
-arista/
+.ylab/
+/openconfig
+/clab-lab/
+/tests/
+/ietf/
+/nokia/
+/srlinux/
+/arista/

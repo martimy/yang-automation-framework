@@ -34,39 +34,40 @@ class CeosInterfaceTranslator(BaseTranslator):
         """
         if payload_format == "json":
             # Construct the JSON payload for gNMI (OpenConfig model)
+            # The payload must follow the {"update": {path: value}} format expected by GnmiTransport
             return {
-                "openconfig-interfaces:interfaces": {
-                    "interface": [
-                        {
+                "update": {
+                    f"openconfig-interfaces:interfaces/interface[name={intent.name}]": {
+                        "name": intent.name,
+                        "config": {
                             "name": intent.name,
-                            "config": {
-                                "name": intent.name,
-                                "description": intent.description,
-                                "enabled": intent.enabled,
-                                "mtu": intent.mtu,
-                            },
-                            "subinterfaces": {
-                                "subinterface": [
-                                    {
-                                        "index": 0,
-                                        "openconfig-if-ip:ipv4": {
-                                            "addresses": {
-                                                "address": [
-                                                    {
+                            "description": intent.description,
+                            "enabled": intent.enabled,
+                            "mtu": intent.mtu,
+                        },
+                        "subinterfaces": {
+                            "subinterface": [
+                                {
+                                    "index": 0,
+                                    "openconfig-if-ip:ipv4": {
+                                        "addresses": {
+                                            "address": [
+                                                {
+                                                    "ip": intent.ip_address,
+                                                    "config": {
                                                         "ip": intent.ip_address,
-                                                        "config": {
-                                                            "ip": intent.ip_address,
-                                                            "prefix-length": intent.prefix_length,
-                                                        },
-                                                    }
-                                                ]
-                                            }
-                                        },
-                                    }
-                                ]
-                            },
-                        }
-                    ]
+                                                        "prefix-length": int(
+                                                            intent.prefix_length
+                                                        ),
+                                                    },
+                                                }
+                                            ]
+                                        }
+                                    },
+                                }
+                            ]
+                        },
+                    }
                 }
             }
 
@@ -81,8 +82,51 @@ class CeosInterfaceTranslator(BaseTranslator):
 
     def translate_batch(
         self, intents: list[InterfaceIntent], payload_format: str = "xml"
-    ) -> str:
-        # Render the template
+    ) -> str | dict:
+        """
+        Translates a list of InterfaceIntents into a batch payload.
+        """
+        if payload_format == "json":
+            # Construct a batch JSON payload for gNMI
+            batch_update = {}
+            for intent in intents:
+                path = f"openconfig-interfaces:interfaces/interface[name={intent.name}]"
+                value = {
+                    "name": intent.name,
+                    "config": {
+                        "name": intent.name,
+                        "description": intent.description,
+                        "enabled": intent.enabled,
+                        "mtu": intent.mtu,
+                    },
+                    "subinterfaces": {
+                        "subinterface": [
+                            {
+                                "index": 0,
+                                "openconfig-if-ip:ipv4": {
+                                    "addresses": {
+                                        "address": [
+                                            {
+                                                "ip": intent.ip_address,
+                                                "config": {
+                                                    "ip": intent.ip_address,
+                                                    "prefix-length": int(
+                                                        intent.prefix_length
+                                                    ),
+                                                },
+                                            }
+                                        ]
+                                    }
+                                },
+                            }
+                        ]
+                    },
+                }
+                batch_update[path] = value
+
+            return {"update": batch_update}
+
+        # Render the XML template for NETCONF
         try:
             xml_payload = self.template.render(interfaces=intents)
             return xml_payload

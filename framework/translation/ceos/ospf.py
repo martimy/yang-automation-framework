@@ -18,8 +18,43 @@ class CeosOspfTranslator(BaseTranslator):
         # Load the interface template
         self.template = self._load_template("ospf.xml.j2")
 
-    def translate(self, intent: OspfIntent) -> str:
-        # Render the template
+    def translate(self, intent: OspfIntent, payload_format: str = "xml") -> str | dict:
+        """
+        Translates an OspfIntent into either XML for NETCONF or a dict for gNMI.
+        """
+        if payload_format == "json":
+            # Construct the JSON payload for gNMI (OpenConfig model)
+            areas = []
+            for area_intent in intent.areas:
+                interfaces = []
+                for iface in area_intent.interfaces:
+                    interfaces.append(
+                        {
+                            "id": iface.name,
+                            "config": {
+                                "id": iface.name,
+                            },
+                        }
+                    )
+                areas.append(
+                    {
+                        "identifier": area_intent.id,
+                        "config": {
+                            "identifier": area_intent.id,
+                        },
+                        "interfaces": {"interface": interfaces},
+                    }
+                )
+
+            return {
+                "update": {
+                    f"openconfig-network-instance:network-instances/network-instance[name={intent.network_instance}]/protocols/protocol[identifier=OSPF][name={intent.name}]/ospf": {
+                        "areas": {"area": areas}
+                    }
+                }
+            }
+
+        # Render the XML template for NETCONF
         try:
             xml_payload = self.template.render(**intent.__dict__)
             return xml_payload

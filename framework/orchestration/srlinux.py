@@ -23,7 +23,9 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
         self, intent: InterfaceIntent, payload_format: str = "xml"
     ) -> bool:
         # Step 1: Create the subinterface with IP
-        subif_payload = self.translators["subinterface"].translate_batch(intent)
+        subif_payload = self.translators["subinterface"].translate_batch(
+            intent, payload_format=payload_format
+        )
         # print(subif_payload)
 
         if self.transport.push_config(subif_payload):
@@ -45,7 +47,8 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
                         network_instance=i.network_instance,
                         interface=i.name,
                         subinterface=i.subinterface,
-                    )
+                    ),
+                    payload_format=payload_format,
                 )
                 if not self.transport.push_config(binding_payload):
                     return False
@@ -53,9 +56,13 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
         return False
 
     def configure_ospf(self, intent: OspfIntent, payload_format: str = "xml") -> bool:
-        ospf_payload = self.translators["ospf"].translate(intent)
+        ospf_payload = self.translators["ospf"].translate(
+            intent, payload_format=payload_format
+        )
         return self.transport.push_config(ospf_payload)
 
     def configure_ntp(self, intent: NtpIntent, payload_format: str = "xml") -> bool:
-        ntp_payload = self.translators["ntp"].translate(intent)
+        ntp_payload = self.translators["ntp"].translate(
+            intent, payload_format=payload_format
+        )
         return self.transport.push_config(ntp_payload)

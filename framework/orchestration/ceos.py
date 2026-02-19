@@ -38,9 +38,13 @@ class CeosOrchestrator(DeviceOrchestrator):
         return self.transport.push_config(payload)
 
     def configure_ospf(self, intent: OspfIntent, payload_format: str = "xml") -> bool:
-        ospf_payload = self.translators["ospf"].translate(intent)
+        ospf_payload = self.translators["ospf"].translate(
+            intent, payload_format=payload_format
+        )
         return self.transport.push_config(ospf_payload)
 
     def configure_ntp(self, intent: NtpIntent, payload_format: str = "xml") -> bool:
-        ntp_payload = self.translators["ntp"].translate(intent)
+        ntp_payload = self.translators["ntp"].translate(
+            intent, payload_format=payload_format
+        )
         return self.transport.push_config(ntp_payload)
