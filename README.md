@@ -725,7 +725,77 @@ TRANSLATORS = {
 Write a complete provisioning script for your network nodes that configures, in order: interfaces with IP addresses, OSPF on those interfaces, an NTP server, and a basic SNMPv2c community. Use the full candidate/validate/confirmed-commit workflow. After the commit, verify each feature using a targeted get-config subtree filter.
 
 
- 
+# Module 7: gNMI - Modern Transport for Model-Driven Automation
+
+This module introduces gNMI (gRPC Network Management Interface) as an alternative to NETCONF. While NETCONF and gNMI both use YANG models and follow the same intent-translation-transport pattern, they differ significantly in encoding, datastore model, and operational characteristics.
+
+## Key Differences
+
+High-Level Comparison: NETCONF vs gNMI
+
+Aspect | NETCONFg | NMI
+---|------|------
+Transport | SSH (port 830) | gRPC over HTTP/2 (port 6030)
+Encoding | XML only | JSON, Protobuf, or text
+Protocol | Custom XML RPC | gRPC streaming RPC
+Datastores | candidate, running, startup | Single unified datastore
+Operations | get, get-config, edit-config, commit, validate | Get, Set, Subscribe (streaming telemetry)
+Streaming | Requires NETCONF notifications extension | Native with Subscribe RPC
+Confirmed commit | Built-in with timeout/rollback | Not standard (vendor-specific)
+Path notation | XPath filtersg | NMI Path (slash-separated, typed keys)
+
+**gNMI Path Notation**
+
+gNMI uses slash-separated paths with bracketed list keys: `/interface[name=ethernet-1/1]/subinterface[index=0]/ipv4`
+
+This maps directly to the pyang tree structure and is more concise than XPath.
+
+**JSON Encoding**
+
+gNMI payloads use native JSON types. Compare:
+
+```
+XML (NETCONF):
+<enabled>true</enabled>
+<index>0</index>
+
+JSON (gNMI):
+"enabled": true,
+"index": 0
+```
+
+Boolean and numeric types are native, making templates simpler.
+
+**No Candidate Datastore**
+
+The most significant operational difference: gNMI has no staging area.
+Changes apply immediately when set() is called.
+
+Impact:
+
+- Faster for simple changes (no commit overhead)
+- No atomic batch validation before applying
+- No built-in confirmed-commit safety net
+- Partial failures leave device in inconsistent state
+
+Best practice: Use get-before-set even more rigorously with gNMI.
+
+## Impact on the 4-Layer Architecture
+
+Adding gNMI support requires only a new transport classs, and updating the translation classes to handle two forms. The Intent and Orchestration layers remain unchanged:
+
+**Dual-Format Translators**
+
+Translators that support both XML and JSON follow this pattern:
+
+[Code example showing format parameter]
+
+### Lab Excercise: Parallel NETCONF and gNMI Configuration
+
+Deploy the same Containerlab topology. Configure the routers via gNMI, using identical objects. Verify both produce the same running configuration.
+
+
+
 \newpage
  
 # References
