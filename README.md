@@ -664,6 +664,13 @@ sudo apt-get install libyang-tools   # Ubuntu/Debian
 yanglint ietf-interfaces.yang payload.xml
 ```
 
+## NETCONF vs gNMI Saftey models
+
+The most significant operational difference between the two transport protocols is the lack of staging support in gNMI. All configuration chnages are applied to the running configuration and they take affect immediately. Therefore, re-validation must happen client-side (yanglint). Partial failures are possible and they colud leave the device in inconsistent state. 
+
+> **Recommendation**   
+When using gNMI in production, implement application-level rollback by storing the previous state via get() before every set(), and providing a manual revert function in your orchestrator.
+
 
 ### Lab Exercise 3: Safe Delivery Workflow
 
