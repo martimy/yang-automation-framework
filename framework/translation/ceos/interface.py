@@ -1,153 +1,63 @@
+from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
-
+from typing import Optional, Union
 from translation.base import BaseTranslator
 from intent.interface import InterfaceIntent
 
 
 class CeosInterfaceTranslator(BaseTranslator):
-    """
-    Translator for cEOS interfaces using OpenConfig YANG models.
-
-    This translator converts InterfaceIntent objects into OpenConfig-compliant
-    XML payloads for cEOS devices. It uses the interface.xml.j2 Jinja2 template
-    to generate the final configuration.
-    """
 
     def __init__(self, template_dir: Optional[str] = None):
         super().__init__()
-
         if template_dir:
             self.template_dir = Path(template_dir)
         else:
-            # Default template path: translation/templates/ceos/
             self.template_dir = Path(__file__).parent.parent / "templates" / "ceos"
 
-        # Load the interface template
-        self.template = self._load_template("interface.xml.j2")
+    def _build_data_structure(self, intent: InterfaceIntent) -> dict:
+        return asdict(intent)
 
     def translate(
-        self, intent: InterfaceIntent, payload_format: str = "xml"
+        self,
+        intent: Union[InterfaceIntent, list[InterfaceIntent]],
+        payload_format: str = "xml",
     ) -> str | dict:
-        """
-        Translates an InterfaceIntent into either XML for NETCONF or a dict for gNMI.
-        """
-        if payload_format == "json":
-            # Construct the JSON payload for gNMI (OpenConfig model)
-            # The payload must follow the {"update": {path: value}} format expected by GnmiTransport
-            return {
-                "update": {
-                    f"openconfig-interfaces:interfaces/interface[name={intent.name}]": {
-                        "name": intent.name,
-                        "config": {
-                            "name": intent.name,
-                            "description": intent.description,
-                            "enabled": intent.enabled,
-                            "mtu": intent.mtu,
-                        },
-                        "subinterfaces": {
-                            "subinterface": [
-                                {
-                                    "index": 0,
-                                    "openconfig-if-ip:ipv4": {
-                                        "addresses": {
-                                            "address": [
-                                                {
-                                                    "ip": intent.ip_address,
-                                                    "config": {
-                                                        "ip": intent.ip_address,
-                                                        "prefix-length": int(
-                                                            intent.prefix_length
-                                                        ),
-                                                    },
-                                                }
-                                            ]
-                                        }
-                                    },
-                                }
-                            ]
-                        },
-                    }
-                }
-            }
+        # normalize to always work with a list internally
+        intents = intent if isinstance(intent, list) else [intent]
+        data_list = [self._build_data_structure(i) for i in intents]
 
-        # Render the XML template for NETCONF
-        try:
-            xml_payload = self.template.render(**intent.__dict__)
-            return xml_payload
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to render template for interface {intent.name}: {str(e)}"
-            )
-
-    def translate_batch(
-        self, intents: list[InterfaceIntent], payload_format: str = "xml"
-    ) -> str | dict:
-        """
-        Translates a list of InterfaceIntents into a batch payload.
-        """
-        if payload_format == "json":
-            # Construct a batch JSON payload for gNMI
-            batch_update = {}
-            for intent in intents:
-                path = f"openconfig-interfaces:interfaces/interface[name={intent.name}]"
-                value = {
-                    "name": intent.name,
-                    "config": {
-                        "name": intent.name,
-                        "description": intent.description,
-                        "enabled": intent.enabled,
-                        "mtu": intent.mtu,
-                    },
-                    "subinterfaces": {
-                        "subinterface": [
-                            {
-                                "index": 0,
-                                "openconfig-if-ip:ipv4": {
-                                    "addresses": {
-                                        "address": [
-                                            {
-                                                "ip": intent.ip_address,
-                                                "config": {
-                                                    "ip": intent.ip_address,
-                                                    "prefix-length": int(
-                                                        intent.prefix_length
-                                                    ),
-                                                },
-                                            }
-                                        ]
-                                    }
-                                },
-                            }
-                        ]
-                    },
-                }
-                batch_update[path] = value
-
-            return {"update": batch_update}
-
-        # Render the XML template for NETCONF
-        try:
-            xml_payload = self.template.render(interfaces=intents)
-            return xml_payload
-        except Exception as e:
-            raise RuntimeError(f"Failed to render template for interfaces: {str(e)}")
+        if payload_format == "xml":
+            return self._render_and_validate_xml(data_list, "interface.xml.j2")
+        elif payload_format == "json":
+            return self._render_and_validate_json(data_list, "interface.json.j2")
+        else:
+            raise ValueError(f"Unsupported format: {payload_format}")
 
 
 if __name__ == "__main__":
     # For testing
-    paramters = {
-        "name": "Ethernet1",
-        "description": "A test interface",
-        "ip_address": "10.0.0.2",
-        "prefix_length": "31",
-        "enabled": True,
-        "subinterface_index": 0,
-        "network_instance": "default",
-    }
+    paramters = [
+        {
+            "name": "Ethernet1",
+            "ip_address": "10.0.0.2",
+            "prefix_length": "31",
+            "enabled": True,
+            "description": "A test interface",
+            "network_instance": "default",
+            "subinterface": 0,
+        },
+        {
+            "name": "Ethernet2",
+            "ip_address": "10.1.0.2",
+            "prefix_length": "31",
+            "enabled": True,
+            "description": "A 2nd test interface",
+            "network_instance": "default",
+            "subinterface": 0,
+        },
+    ]
 
-    intent = InterfaceIntent(**paramters)
-    translator = OpenConfigInterfaceTranslator()
-    payload = translator.translate(intent)
+    intent = [InterfaceIntent(**p) for p in paramters]
+    payload = CeosInterfaceTranslator().translate(intent, payload_format="json")
 
     print(payload)

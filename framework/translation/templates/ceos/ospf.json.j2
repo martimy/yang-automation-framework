@@ -1,0 +1,43 @@
+{
+  "path": "network-instances/network-instance[name={{ network_instance }}]/protocols/protocol[identifier=OSPF][name={{ name }}]",
+  "value": {
+    "openconfig-network-instance:config": {
+      "identifier": "openconfig-policy-types:OSPF",
+      "name": "{{ name }}",
+      "enabled": {{ enabled | lower }}
+    },
+    "openconfig-network-instance:ospfv2": {
+      "global": {
+        "config": {
+          "router-id": "{{ router_id }}"
+        }
+      },
+      "areas": {
+        "area": [
+          {% for area in areas %}
+          {
+            "identifier": {{ area.id }},
+            "config": {
+              "identifier": {{ area.id }}
+            },
+            "interfaces": {
+              "interface": [
+                {% for iface in area.interfaces %}
+                {
+                  "id": "{{ iface.name }}",
+                  "config": {
+                    "id": "{{ iface.name }}",
+                    "network-type": "{{ iface.network_type | upper }}",
+                    "passive": {{ iface.passive | lower }}
+                  }
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+              ]
+            }
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ]
+      }
+    }
+  }
+}

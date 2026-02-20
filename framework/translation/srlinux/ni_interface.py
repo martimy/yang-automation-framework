@@ -18,7 +18,9 @@ class NiInterfaceBindingTranslator(BaseTranslator):
         # Load the interface template
         self.template = self._load_template("ni_interface.xml.j2")
 
-    def translate(self, intent: NiInterfaceBindingIntent, payload_format: str = "xml") -> str | dict:
+    def translate(
+        self, intent: NiInterfaceBindingIntent, payload_format: str = "xml"
+    ) -> str | dict:
         # Render the template
         try:
             xml_payload = self.template.render(**intent.__dict__)
@@ -28,7 +30,9 @@ class NiInterfaceBindingTranslator(BaseTranslator):
                 f"Failed to render template for network instance interface binding {intent.name}: {str(e)}"
             )
 
-    def translate_batch(self, intents: list[NiInterfaceBindingIntent], payload_format: str = "xml") -> str | dict:
+    def translate_batch(
+        self, intents: list[NiInterfaceBindingIntent], payload_format: str = "xml"
+    ) -> str | dict:
         # Render the template
         try:
             xml_payload = self.template.render(interfaces=intents)

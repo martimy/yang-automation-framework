@@ -49,4 +49,6 @@ class OpenconfigNtpTranslator(BaseTranslator):
             xml_payload = self.template.render(**intent.__dict__)
             return xml_payload
         except Exception as e:
-            raise RuntimeError(f"Failed to render template for {intent.network_instance}: {str(e)}")
+            raise RuntimeError(
+                f"Failed to render template for {intent.network_instance}: {str(e)}"
+            )

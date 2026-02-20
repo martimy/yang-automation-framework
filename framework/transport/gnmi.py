@@ -4,21 +4,35 @@ gNMI Transport Layer
 
 from pygnmi.client import gNMIclient
 
+devices = {
+    "srl-01": {
+        "target": ("srl-01", 57400),
+        "username": "admin",
+        "password": "NokiaSrl1!",
+        "skip_verify": True,
+    },
+    "srl-02": {
+        "target": ("srl-01", 57400),
+        "username": "admin",
+        "password": "NokiaSrl1!",
+        "skip_verify": True,
+    },
+    "ceos-01": {
+        "target": ("ceos-01", 6030),
+        "username": "admin",
+        "password": "admin",
+        "insecure": True,
+    },
+}
+
 
 class GnmiTransport:
-    def __init__(self, host, username, password, port=57400, **kwargs):
+    def __init__(self, host):
         # gNMI uses a different default port
         # The 'insecure=True' flag is used for lab environments to bypass TLS certificate verification.
         # For production, you should use secure connections with valid certificates.
-        self.target = (host, port)
-        self.username = username
-        self.password = password
-        self.client = gNMIclient(
-            target=self.target,
-            username=self.username,
-            password=self.password,
-            insecure=True,
-        )
+
+        self.client = gNMIclient(**devices[host])
 
     def get_config(self, path: list) -> dict:
         """
@@ -34,19 +48,19 @@ class GnmiTransport:
         Pushes configuration to the device using gNMI SET.
         The payload should be a dictionary representing the JSON to be sent.
         """
-        update_payload = []
-        if "update" in payload:
-            for path, val in payload["update"].items():
-                update_payload.append((path, val))
 
-        delete_payload = payload.get("delete", [])
+        if isinstance(payload, dict):
+            payload = [payload]
+
+        update_payload = [(item["path"], item["value"]) for item in payload]
 
         with self.client as client:
             try:
                 # gNMI's SET is more direct than NETCONF's candidate/commit workflow.
                 # It directly applies changes to the running configuration.
                 # Production environments may require more complex validation or pre-check logic.
-                client.set(update=update_payload, delete=delete_payload)
+                result = client.set(update=update_payload)
+                print(result)
                 print("Configuration pushed via gNMI.")
                 return True
             except Exception as e:

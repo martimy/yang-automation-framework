@@ -11,26 +11,26 @@
         description: To SRL-02
         ip_address: 192.168.1.4
         prefix_length: 31
-    protocols:
-      ospf:
-        - name: 100
-          network_instance: default
-          router_id: 10.0.0.3
-          areas:
-            - id: 0.0.0.0
-              interfaces:
-                - name: Ethernet1
-                  enabled: true
-                  network_type: point_to_point_network
-                - name: Ethernet2
-                  enabled: true
-                  network_type: point_to_point_network
-      ntp:
-        - network_instance: MGMT
-          servers:
-            - ip_address: 192.168.100.1
-            - ip_address: pool.ntp.org
-          source_address: 192.168.100.11
+    # protocols:
+    #   ospf:
+    #     - name: 100
+    #       network_instance: default
+    #       router_id: 10.0.0.3
+    #       areas:
+    #         - id: 0.0.0.0
+    #           interfaces:
+    #             - name: Ethernet1
+    #               enabled: true
+    #               network_type: point_to_point_network
+    #             - name: Ethernet2
+    #               enabled: true
+    #               network_type: point_to_point_network
+    #   ntp:
+    #     - network_instance: MGMT
+    #       servers:
+    #         - ip_address: 192.168.100.1
+    #         - ip_address: pool.ntp.org
+    #       source_address: 192.168.100.11
 - host: srl-01
   vendor: srlinux
   username: admin
@@ -48,26 +48,26 @@
         prefix_length: 31
         network_instance: default
         subinterface: 0
-    protocols:
-      ospf:
-        - name: main
-          network_instance: default
-          router_id: 10.0.0.1
-          areas:
-            - id: 0.0.0.0
-              interfaces:
-                - name: ethernet-1/1.0
-                  enabled: true
-                  network_type: point-to-point
-                - name: ethernet-1/2.0
-                  enabled: true
-                  network_type: point-to-point
-      ntp:
-        - network_instance: mgmt
-          servers:
-            - ip_address: 192.168.100.1
-            - ip_address: pool.ntp.org
-          source_address: 192.168.100.12
+    # protocols:
+    #   ospf:
+    #     - name: main
+    #       network_instance: default
+    #       router_id: 10.0.0.1
+    #       areas:
+    #         - id: 0.0.0.0
+    #           interfaces:
+    #             - name: ethernet-1/1.0
+    #               enabled: true
+    #               network_type: point-to-point
+    #             - name: ethernet-1/2.0
+    #               enabled: true
+    #               network_type: point-to-point
+    #   ntp:
+    #     - network_instance: mgmt
+    #       servers:
+    #         - ip_address: 192.168.100.1
+    #         - ip_address: pool.ntp.org
+    #       source_address: 192.168.100.12
 - host: srl-02
   vendor: srlinux
   username: admin
@@ -85,23 +85,23 @@
         prefix_length: 31
         network_instance: default
         subinterface: 0
-    protocols:
-      ospf:
-        - name: main
-          network_instance: default
-          router_id: 10.0.0.2
-          areas:
-            - id: 0.0.0.0
-              interfaces:
-                - name: ethernet-1/1.0
-                  enabled: true
-                  network_type: point-to-point
-                - name: ethernet-1/2.0
-                  enabled: true
-                  network_type: point-to-point
-      ntp:
-        - network_instance: mgmt
-          servers:
-            - ip_address: 192.168.100.1
-            - ip_address: pool.ntp.org
-          source_address: 192.168.100.13
+    # protocols:
+    #   ospf:
+    #     - name: main
+    #       network_instance: default
+    #       router_id: 10.0.0.2
+    #       areas:
+    #         - id: 0.0.0.0
+    #           interfaces:
+    #             - name: ethernet-1/1.0
+    #               enabled: true
+    #               network_type: point-to-point
+    #             - name: ethernet-1/2.0
+    #               enabled: true
+    #               network_type: point-to-point
+    #   ntp:
+    #     - network_instance: mgmt
+    #       servers:
+    #         - ip_address: 192.168.100.1
+    #         - ip_address: pool.ntp.org
+    #       source_address: 192.168.100.13

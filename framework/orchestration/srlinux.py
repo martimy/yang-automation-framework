@@ -23,10 +23,12 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
         self, intent: InterfaceIntent, payload_format: str = "xml"
     ) -> bool:
         # Step 1: Create the subinterface with IP
-        subif_payload = self.translators["subinterface"].translate_batch(
+        subif_payload = self.translators["subinterface"].translate(
             intent, payload_format=payload_format
         )
         # print(subif_payload)
+
+        return self.transport.push_config(subif_payload)
 
         if self.transport.push_config(subif_payload):
             # # Step 2: Ensure the network-instance exists
@@ -41,6 +43,7 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
 
             # Step 3: Bind subinterface to network-instance
             # Temp solution
+
             for i in intent:
                 binding_payload = self.translators["ni_interface"].translate(
                     NiInterfaceBindingIntent(

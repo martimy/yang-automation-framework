@@ -1,47 +1,20 @@
-{
-  "config": {
-    "xmlns": "urn:ietf:params:xml:ns:netconf:base:1.0",
-    "interfaces": {
-      "xmlns": "http://openconfig.net/yang/interfaces",
-      "interface": [
-        {% for iface in interfaces %}
+[
+  {% for iface in interfaces %}
+  {
+    "path": "interface[name={{ iface.name }}]",
+    "value": {
+      "admin-state": "enable",
+      "subinterface": [
         {
-          "name": "{{ iface.name }}",
-          "config": {
-            "name": "{{ iface.name }}",
-            "type": {
-              "xmlns:iana-if-type": "urn:ietf:params:xml:ns:yang:iana-if-type",
-              "value": "iana-if-type:ethernetCsmacd"
-            },
-            "enabled": {{ iface.enabled | lower }}
-          },
-          "subinterfaces": {
-            "subinterface": {
-              "index": {{ iface.subinterface }},
-              "config": {
-                "index": {{ iface.subinterface }},
-                "enabled": {{ iface.enabled | lower }}
-              },
-              "ipv4": {
-                "xmlns": "http://openconfig.net/yang/interfaces/ip",
-                "addresses": {
-                  "address": {
-                    "ip": "{{ iface.ip_address }}",
-                    "config": {
-                      "ip": "{{ iface.ip_address }}",
-                      "prefix-length": {{ iface.prefix_length }}
-                    }
-                  }
-                },
-                "config": {
-                  "enabled": {{ iface.enabled | lower }}
-                }
-              }
-            }
+          "index": {{ iface.subinterface }},
+          "admin-state": "enable",
+          "ipv4": {
+            "admin-state": "enable",
+            "address": [{ "ip-prefix": "{{ iface.ip_address }}/{{ iface.prefix_length }}" }]
           }
-        }{% if not loop.last %},{% endif %}
-        {% endfor %}
+        }
       ]
     }
-  }
-}
+  }{{ "," if not loop.last }}
+  {% endfor %}
+]

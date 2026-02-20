@@ -18,7 +18,9 @@ class NetworkInstanceTranslator(BaseTranslator):
         # Load the interface template
         self.template = self._load_template("network_instance.xml.j2")
 
-    def translate(self, intents: list[NetworkInstanceIntent], payload_format: str = "xml") -> str | dict:
+    def translate(
+        self, intents: list[NetworkInstanceIntent], payload_format: str = "xml"
+    ) -> str | dict:
         # Render the template
         try:
             xml_payload = self.template.render(**intent.__dict__)

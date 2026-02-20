@@ -130,11 +130,7 @@ def main():
         print(f"\n>>> Provisioning {device['host']} ({device['vendor']})")
 
         # --- Dynamic Transport Instantiation ---
-        transport = TransportClass(
-            host=device["host"],
-            username=device.get("username", os.getenv("DEFAULT_USERNAME")),
-            password=passwords.get(device["vendor"]),
-        )
+        transport = TransportClass(host=device["host"])
 
         translators = TRANSLATORS[device["vendor"]]
         orchestrator = ORCHESTRATORS[device["vendor"]](transport, translators)

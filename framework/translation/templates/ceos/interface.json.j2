@@ -1,0 +1,37 @@
+{
+"path": "openconfig:interfaces",
+"value": {
+    "interface": [
+      {% for iface in interfaces %}
+      {
+        "name": "{{ iface.name }}",
+        "config": {
+          "name": "{{ iface.name }}",
+          "description": "{{ iface.description }}",
+          "enabled": {{ iface.enabled | lower }}
+        },
+        "subinterfaces": {
+          "subinterface": [
+            {
+              "index": 0,
+              "ipv4": {
+                "addresses": {
+                  "address": [
+                    {
+                      "ip": "{{ iface.ip_address }}",
+                      "config": {
+                        "ip": "{{ iface.ip_address }}",
+                        "prefix-length": {{ iface.prefix_length }}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }{{ "," if not loop.last }}
+      {% endfor %}
+    ]
+  }
+}

@@ -31,10 +31,9 @@ class CeosOrchestrator(DeviceOrchestrator):
         """
         # The translator's translate_batch method should handle the format.
         # We assume it's updated to do so. If not, logic would be needed here.
-        payload = self.translators["interface"].translate_batch(
+        payload = self.translators["interface"].translate(
             intents, payload_format=payload_format
         )
-
         return self.transport.push_config(payload)
 
     def configure_ospf(self, intent: OspfIntent, payload_format: str = "xml") -> bool:
