@@ -64,31 +64,3 @@ class BaseTranslator(ABC, Generic[T]):
             str | dict: The generated payload (string for XML, dict for JSON)
         """
 
-    # def _render_template(self, template: Template, context: Dict[str, Any]) -> str:
-    #     """
-    #     Render a Jinja2 template with the given context.
-
-    #     Args:
-    #         template: The Jinja2 template to render
-    #         context: Dictionary of variables to pass to the template
-
-    #     Returns:
-    #         str: The rendered template
-    #     """
-    #     return template.render(**context)
-
-    def _render_and_validate_xml(
-        self, data_list: list[dict], template_file: str
-    ) -> str:
-        template = self._load_template(template_file)
-        rendered = template.render(interfaces=data_list)
-        xmltodict.parse(rendered)
-        return rendered
-
-    def _render_and_validate_json(
-        self, data_list: list[dict], template_file: str
-    ) -> str:
-        template = self._load_template(template_file)
-        rendered = template.render(interfaces=data_list)
-        return json.loads(rendered)  # returns a dict
-        # return rendered

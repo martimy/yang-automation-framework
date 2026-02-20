@@ -1,0 +1,28 @@
+{
+"path": "/network-instance[name={{ network_instance }}]/protocols/ospf",
+"value": {
+  "instance": [
+    {
+      "name": "{{ name }}",
+      "router-id": "{{ router_id }}",
+      "version": "ospf-v2",
+      "admin-state": "enable",
+      "area": [
+        {% for area in areas %}
+        {
+          "area-id": "{{ area.id }}",
+          "interface": [
+            {% for iface in area.interfaces %}
+            {
+              "admin-state": "enable",
+              "interface-name": "{{ iface.name }}"
+            }{{ "," if not loop.last }}
+            {% endfor %}
+          ]
+        }{{ "," if not loop.last }}
+        {% endfor %}
+      ]
+    }
+  ]
+}
+}

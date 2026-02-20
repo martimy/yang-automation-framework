@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-
+from typing import List
+from intent.srlinux.interface import InterfaceIntent
 
 @dataclass
 class NiInterfaceBindingIntent:
     network_instance: str
-    interface: str  # parent interface name
-    subinterface: int = 0  # subinterface index
+    interfaces: list[InterfaceIntent]
+    

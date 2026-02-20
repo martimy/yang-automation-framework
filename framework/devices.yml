@@ -48,20 +48,20 @@
         prefix_length: 31
         network_instance: default
         subinterface: 0
-    # protocols:
-    #   ospf:
-    #     - name: main
-    #       network_instance: default
-    #       router_id: 10.0.0.1
-    #       areas:
-    #         - id: 0.0.0.0
-    #           interfaces:
-    #             - name: ethernet-1/1.0
-    #               enabled: true
-    #               network_type: point-to-point
-    #             - name: ethernet-1/2.0
-    #               enabled: true
-    #               network_type: point-to-point
+    protocols:
+      ospf:
+        - name: main
+          network_instance: default
+          router_id: 10.0.0.1
+          areas:
+            - id: 0.0.0.0
+              interfaces:
+                - name: ethernet-1/1.0
+                  enabled: true
+                  network_type: point-to-point
+                - name: ethernet-1/2.0
+                  enabled: true
+                  network_type: point-to-point
     #   ntp:
     #     - network_instance: mgmt
     #       servers:
@@ -85,20 +85,20 @@
         prefix_length: 31
         network_instance: default
         subinterface: 0
-    # protocols:
-    #   ospf:
-    #     - name: main
-    #       network_instance: default
-    #       router_id: 10.0.0.2
-    #       areas:
-    #         - id: 0.0.0.0
-    #           interfaces:
-    #             - name: ethernet-1/1.0
-    #               enabled: true
-    #               network_type: point-to-point
-    #             - name: ethernet-1/2.0
-    #               enabled: true
-    #               network_type: point-to-point
+    protocols:
+      ospf:
+        - name: main
+          network_instance: default
+          router_id: 10.0.0.2
+          areas:
+            - id: 0.0.0.0
+              interfaces:
+                - name: ethernet-1/1.0
+                  enabled: true
+                  network_type: point-to-point
+                - name: ethernet-1/2.0
+                  enabled: true
+                  network_type: point-to-point
     #   ntp:
     #     - network_instance: mgmt
     #       servers:

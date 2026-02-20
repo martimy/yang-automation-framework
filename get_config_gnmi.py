@@ -14,12 +14,12 @@ ceos_params = {
     "insecure": True,
 }
 
-xpath = "/interface"
+NETWORK_INSTANCE = ["network-instance"]
 
 if __name__ == "__main__":
     # Create gNMI client connection
     with gNMIclient(**srl_params) as gc:
 
 
-        result = gc.get(path=[xpath], datatype="config")
+        result = gc.get(path=NETWORK_INSTANCE, datatype="config")
         print(result)
