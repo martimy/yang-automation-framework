@@ -433,3 +433,272 @@ For SRLinux
 $ python3 get_capabilties.py srl | grep ntp
 urn:nokia.com:srlinux:linux:ntp?module=srl_nokia-ntp&revision=2025-10-31
 ```
+
+
+# Best strategy to get gnmic sturcture(?)
+
+use gnmic and the values
+
+```
+gnmic -a srl-01 -u admin -p NokiaSrl1! -e json_ietf --skip-verify get --path /network-instance[name=default] -t config
+[
+  {
+    "source": "srl-01",
+    "timestamp": 1771631705654269293,
+    "time": "2026-02-20T23:55:05.654269293Z",
+    "updates": [
+      {
+        "Path": "srl_nokia-network-instance:network-instance[name=default]",
+        "values": {
+          "srl_nokia-network-instance:network-instance": {
+            "admin-state": "enable",
+            "interface": [
+              {
+                "name": "ethernet-1/1.0"
+              },
+              {
+                "name": "ethernet-1/2.0"
+              }
+            ],
+            "protocols": {
+              "srl_nokia-ospf:ospf": {
+                "instance": [
+                  {
+                    "admin-state": "enable",
+                    "area": [
+                      {
+                        "area-id": "0.0.0.0",
+                        "interface": [
+                          {
+                            "admin-state": "enable",
+                            "interface-name": "ethernet-1/1.0"
+                          },
+                          {
+                            "admin-state": "enable",
+                            "interface-name": "ethernet-1/2.0"
+                          }
+                        ]
+                      }
+                    ],
+                    "name": "main",
+                    "router-id": "10.0.0.2",
+                    "version": "srl_nokia-ospf-types:ospf-v2"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]
+```
+
+
+```
+gnmic -a ceos-01:6030 -u admin -p admin -e json --insecure get --path /network-instances/network-instance[name=default] -t config
+```
+
+```
+[
+  {
+    "source": "ceos-01:6030",
+    "timestamp": 1771631817164999398,
+    "time": "2026-02-20T23:56:57.164999398Z",
+    "updates": [
+      {
+        "Path": "network-instances/network-instance[name=default]",
+        "values": {
+          "network-instances/network-instance": {
+            "openconfig-network-instance:config": {
+              "arista-netinst-augments:ipv4-routing-enabled": false,
+              "arista-netinst-augments:ipv6-routing-enabled": false,
+              "name": "default",
+              "type": "openconfig-network-instance-types:DEFAULT_INSTANCE"
+            },
+            "openconfig-network-instance:mpls": {
+              "global": {
+                "reserved-label-blocks": {
+                  "reserved-label-block": [
+                    {
+                      "config": {
+                        "local-id": "bgp-sr",
+                        "lower-bound": 900000,
+                        "upper-bound": 965535
+                      },
+                      "local-id": "bgp-sr"
+                    },
+                    {
+                      "config": {
+                        "local-id": "dynamic",
+                        "lower-bound": 100000,
+                        "upper-bound": 362143
+                      },
+                      "local-id": "dynamic"
+                    },
+                    {
+                      "config": {
+                        "local-id": "isis-sr",
+                        "lower-bound": 900000,
+                        "upper-bound": 965535
+                      },
+                      "local-id": "isis-sr"
+                    },
+                    {
+                      "config": {
+                        "local-id": "l2evpn",
+                        "lower-bound": 1036288,
+                        "upper-bound": 1048575
+                      },
+                      "local-id": "l2evpn"
+                    },
+                    {
+                      "config": {
+                        "local-id": "l2evpnSharedEs",
+                        "lower-bound": 1031072,
+                        "upper-bound": 1032095
+                      },
+                      "local-id": "l2evpnSharedEs"
+                    },
+                    {
+                      "config": {
+                        "local-id": "ospf-sr",
+                        "lower-bound": 900000,
+                        "upper-bound": 965535
+                      },
+                      "local-id": "ospf-sr"
+                    },
+                    {
+                      "config": {
+                        "local-id": "srlb",
+                        "lower-bound": 965536,
+                        "upper-bound": 1031071
+                      },
+                      "local-id": "srlb"
+                    },
+                    {
+                      "config": {
+                        "local-id": "static",
+                        "lower-bound": 16,
+                        "upper-bound": 99999
+                      },
+                      "local-id": "static"
+                    }
+                  ]
+                }
+              },
+              "signaling-protocols": {
+                "rsvp-te": {
+                  "global": {
+                    "hellos": {
+                      "config": {
+                        "hello-interval": 10000
+                      }
+                    },
+                    "soft-preemption": {
+                      "config": {
+                        "enable": true
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "openconfig-network-instance:name": "default",
+            "openconfig-network-instance:protocols": {
+              "protocol": [
+                {
+                  "config": {
+                    "identifier": "openconfig-policy-types:DIRECTLY_CONNECTED",
+                    "name": "DIRECTLY_CONNECTED"
+                  },
+                  "identifier": "openconfig-policy-types:DIRECTLY_CONNECTED",
+                  "name": "DIRECTLY_CONNECTED"
+                },
+                {
+                  "config": {
+                    "identifier": "openconfig-policy-types:BGP",
+                    "name": "BGP"
+                  },
+                  "identifier": "openconfig-policy-types:BGP",
+                  "name": "BGP"
+                }
+              ]
+            },
+            "openconfig-network-instance:segment-routing": {
+              "srgbs": {
+                "srgb": [
+                  {
+                    "config": {
+                      "dataplane-type": "MPLS",
+                      "local-id": "isis-sr",
+                      "mpls-label-blocks": [
+                        "isis-sr"
+                      ]
+                    },
+                    "local-id": "isis-sr"
+                  },
+                  {
+                    "config": {
+                      "dataplane-type": "MPLS",
+                      "local-id": "ospf-sr",
+                      "mpls-label-blocks": [
+                        "ospf-sr"
+                      ]
+                    },
+                    "local-id": "ospf-sr"
+                  }
+                ]
+              },
+              "srlbs": {
+                "srlb": [
+                  {
+                    "config": {
+                      "dataplane-type": "MPLS",
+                      "local-id": "srlb",
+                      "mpls-label-block": "srlb"
+                    },
+                    "local-id": "srlb"
+                  }
+                ]
+              }
+            },
+            "openconfig-network-instance:tables": {
+              "table": [
+                {
+                  "address-family": "openconfig-types:IPV4",
+                  "config": {
+                    "address-family": "openconfig-types:IPV4",
+                    "protocol": "openconfig-policy-types:DIRECTLY_CONNECTED"
+                  },
+                  "protocol": "openconfig-policy-types:DIRECTLY_CONNECTED"
+                },
+                {
+                  "address-family": "openconfig-types:IPV6",
+                  "config": {
+                    "address-family": "openconfig-types:IPV6",
+                    "protocol": "openconfig-policy-types:DIRECTLY_CONNECTED"
+                  },
+                  "protocol": "openconfig-policy-types:DIRECTLY_CONNECTED"
+                }
+              ]
+            },
+            "openconfig-network-instance:vlans": {
+              "vlan": [
+                {
+                  "config": {
+                    "name": "default",
+                    "vlan-id": 1
+                  },
+                  "vlan-id": 1
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+]
+````

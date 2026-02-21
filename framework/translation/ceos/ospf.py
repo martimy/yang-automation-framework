@@ -1,73 +1,51 @@
+import json
+from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
-
+from typing import Optional, Union
 from translation.base import BaseTranslator
-from intent.ospf import OspfIntent, OspfInterfaceIntent, OspfAreaIntent
+from intent.ospf import OspfInterfaceIntent, OspfAreaIntent, OspfIntent
+import xmltodict
 
 
 class CeosOspfTranslator(BaseTranslator):
+
     def __init__(self, template_dir: Optional[str] = None):
         super().__init__()
-
         if template_dir:
             self.template_dir = Path(template_dir)
         else:
-            # Default template path: translation/templates/ceos/
             self.template_dir = Path(__file__).parent.parent / "templates" / "ceos"
 
-        # Load the interface template
-        self.template = self._load_template("ospf.xml.j2")
+    def _build_data_structure(self, intent: OspfIntent) -> dict:
+        return asdict(intent)
 
-    def translate(self, intent: OspfIntent, payload_format: str = "xml") -> str | dict:
-        """
-        Translates an OspfIntent into either XML for NETCONF or a dict for gNMI.
-        """
-        # if payload_format == "json":
-        #     # Construct the JSON payload for gNMI (OpenConfig model)
-        #     areas = []
-        #     for area_intent in intent.areas:
-        #         interfaces = []
-        #         for iface in area_intent.interfaces:
-        #             interfaces.append(
-        #                 {
-        #                     "id": iface.name,
-        #                     "config": {
-        #                         "id": iface.name,
-        #                     },
-        #                 }
-        #             )
-        #         areas.append(
-        #             {
-        #                 "identifier": area_intent.id,
-        #                 "config": {
-        #                     "identifier": area_intent.id,
-        #                 },
-        #                 "interfaces": {"interface": interfaces},
-        #             }
-        #         )
+    def translate(
+        self,
+        intent: OspfIntent,
+        payload_format: str = "xml",
+    ) -> str | dict:
+        data_list = self._build_data_structure(intent)
+        if payload_format == "xml":
+            return self._render_and_validate_xml(data_list, "ospf.xml.j2")
+        elif payload_format == "json":
+            return self._render_and_validate_json(data_list, "ospf.json.j2")
+        else:
+            raise ValueError(f"Unsupported format: {payload_format}")
 
-        #     return {
-        #         "update": {
-        #             f"openconfig-network-instance:network-instances/network-instance[name={intent.network_instance}]/protocols/protocol[identifier=OSPF][name={intent.name}]/ospf": {
-        #                 "areas": {"area": areas}
-        #             }
-        #         }
-        #     }
+    def _render_and_validate_xml(
+        self, data_list: list[dict], template_file: str
+    ) -> str:
+        template = self._load_template(template_file)
+        rendered = template.render(data_list)
+        xmltodict.parse(rendered)
+        return rendered
 
-        if payload_format == "json":
-            template = self._load_template("templates/ceos/ospf.json.j2")
-            json_payload = self.template.render(**intent.__dict__)
-            print(json_payload)
-            return {"update": json_payload}
-        # Render the XML template for NETCONF
-        try:
-            xml_payload = self.template.render(**intent.__dict__)
-            return xml_payload
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to render template for network instance {intent.name}: {str(e)}"
-            )
-
+    def _render_and_validate_json(
+        self, data_list: list[dict], template_file: str
+    ) -> dict:
+        template = self._load_template(template_file)
+        rendered = template.render(data_list)
+        return json.loads(rendered)
 
 if __name__ == "__main__":
     # For testing
@@ -75,10 +53,10 @@ if __name__ == "__main__":
     interfaces = [OspfInterfaceIntent(name="eth1"), OspfInterfaceIntent(name="eth2")]
     areas = [OspfAreaIntent(id="0.0.0.0", interfaces=interfaces)]
     intent = OspfIntent(
-        name="main", network_instance="default", router_id="10.0.0.1", areas=areas
+        name="100", network_instance="default", router_id="10.0.0.1", areas=areas
     )
 
-    translator = OspfTranslator()
-    payload = translator.translate(intent)
+    translator = CeosOspfTranslator()
+    payload = translator.translate(intent, payload_format="json")
 
     print(payload)

@@ -2,7 +2,7 @@
   <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
       <name>{{ network_instance }}</name>
       <interface>
-        <name>{{ interface ~ "." ~ subinterface }}</name>
+        <name>{{ name }}.{{ subinterface }}</name>
       </interface>
   </network-instance>
 </config>

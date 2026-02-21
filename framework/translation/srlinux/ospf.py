@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Union
 from translation.base import BaseTranslator
 from intent.ospf import OspfInterfaceIntent, OspfAreaIntent, OspfIntent
+import xmltodict
 
 
 class SrlinuxOspfTranslator(BaseTranslator):

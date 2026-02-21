@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Union
 from translation.base import BaseTranslator
 from intent.interface import InterfaceIntent
+import xmltodict
 
 
 class CeosInterfaceTranslator(BaseTranslator):

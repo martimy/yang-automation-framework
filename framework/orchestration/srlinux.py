@@ -1,6 +1,6 @@
 from .base import DeviceOrchestrator
 from intent.interface import InterfaceIntent
-# from intent.ni_interface import NiInterfaceBindingIntent
+from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent
 from intent.ntp import NtpIntent
 from typing import List
@@ -22,22 +22,50 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
     def configure_interface(
         self, intent: list[InterfaceIntent], payload_format: str = "xml"
     ) -> bool:
+
         # Step 1: Create the subinterface with IP
         subif_payload = self.translators["subinterface"].translate(
             intent, payload_format=payload_format
         )
 
+        # Step 2: Create a network instance if it does noyt exist
+
+        self.transport.push_config(subif_payload)
+
+        # if self.transport.push_config(subif_payload):
+        #     ni_list = []
+        #     for i in intnet:
+        #         if i in ni_list:
+        #             continue # do this once per instance
+        #         else:
+        #             ni_list.append(i)
+        #             ni_payload = self.translators["network_instance"].translate(
+        #                 NetworkInstanceIntent(
+        #                     name=i.network_instance,
+        #                     type="ip-vrf",
+        #                     description="default",
+        #                 ),
+        #                 payload_format=payload_format
+        #             )
+
+        #             if not self.transport.push_config(ni_payload):
+        #                 return False
+        # else:
+        #     return False
+
+        # Step 3: Associate an interface to an instance
+
         if self.transport.push_config(subif_payload):
             for i in intent:
                 binding_payload = self.translators["ni_interface"].translate(
                     i,
-                    payload_format=payload_format,
+                    payload_format=payload_format
                 )
-                if not self.transport.push_config(binding_payload):
-                    return False
-            return True
-        
-        return False
+                # print(binding_payload)
+                result = self.transport.push_config(binding_payload)
+
+        return True
+
 
     def configure_ospf(self, intent: OspfIntent, payload_format: str = "xml") -> bool:
         ospf_payload = self.translators["ospf"].translate(

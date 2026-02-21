@@ -1,43 +1,46 @@
 {
-  "path": "network-instances/network-instance[name={{ network_instance }}]/protocols/protocol[identifier=OSPF][name={{ name }}]",
-  "value": {
-    "openconfig-network-instance:config": {
-      "identifier": "openconfig-policy-types:OSPF",
-      "name": "{{ name }}",
-      "enabled": {{ enabled | lower }}
-    },
-    "openconfig-network-instance:ospfv2": {
-      "global": {
+"path": "network-instances/network-instance[name={{ network_instance }}]/protocols",
+"value": {
+    "openconfig-network-instance:protocol": [
+      {
         "config": {
-          "router-id": "{{ router_id }}"
+          "enabled": true,
+          "identifier": "openconfig-policy-types:OSPF",
+          "name": "{{ name }}"
+        },
+        "identifier": "openconfig-policy-types:OSPF",
+        "name": "{{ 100 }}",
+        "ospfv2": {
+          "areas": {
+            "area": [
+              {% for area in areas %}
+              {
+                "config": {
+                  "identifier": "{{ area.id }}"
+                },
+                "identifier": "{{ area.id }}",
+                "interfaces": {
+                  "interface": [
+                    {% for iface in area.interfaces %}
+                    {
+                      "id": "{{ iface.name }}",
+                      "config": {
+                        "id": "{{ iface.name }}",
+                        "metric": 0,
+                        "network-type": "{{ iface.network_type | upper }}",
+                        "passive": false,
+                        "priority": 1
+                      }
+                    }{{ "," if not loop.last }}
+                    {% endfor %}
+                  ]
+                }
+              }{{ "," if not loop.last }}
+              {% endfor %}
+            ]
+          }
         }
-      },
-      "areas": {
-        "area": [
-          {% for area in areas %}
-          {
-            "identifier": {{ area.id }},
-            "config": {
-              "identifier": {{ area.id }}
-            },
-            "interfaces": {
-              "interface": [
-                {% for iface in area.interfaces %}
-                {
-                  "id": "{{ iface.name }}",
-                  "config": {
-                    "id": "{{ iface.name }}",
-                    "network-type": "{{ iface.network_type | upper }}",
-                    "passive": {{ iface.passive | lower }}
-                  }
-                }{% if not loop.last %},{% endif %}
-                {% endfor %}
-              ]
-            }
-          }{% if not loop.last %},{% endif %}
-          {% endfor %}
-        ]
       }
-    }
+    ]
   }
 }

@@ -60,7 +60,6 @@ class GnmiTransport:
                 # It directly applies changes to the running configuration.
                 # Production environments may require more complex validation or pre-check logic.
                 result = client.set(update=update_payload)
-                print(result)
                 print("Configuration pushed via gNMI.")
                 return True
             except Exception as e:

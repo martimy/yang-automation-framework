@@ -11,20 +11,20 @@
         description: To SRL-02
         ip_address: 192.168.1.4
         prefix_length: 31
-    # protocols:
-    #   ospf:
-    #     - name: 100
-    #       network_instance: default
-    #       router_id: 10.0.0.3
-    #       areas:
-    #         - id: 0.0.0.0
-    #           interfaces:
-    #             - name: Ethernet1
-    #               enabled: true
-    #               network_type: point_to_point_network
-    #             - name: Ethernet2
-    #               enabled: true
-    #               network_type: point_to_point_network
+    protocols:
+      ospf:
+        - name: 100
+          network_instance: default
+          router_id: 10.0.0.3
+          areas:
+            - id: 0.0.0.0
+              interfaces:
+                - name: Ethernet1
+                  enabled: true
+                  network_type: point_to_point_network
+                - name: Ethernet2
+                  enabled: true
+                  network_type: point_to_point_network
     #   ntp:
     #     - network_instance: MGMT
     #       servers:
