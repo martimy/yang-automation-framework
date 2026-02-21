@@ -1,0 +1,14 @@
+{
+"path": "srl_nokia-system:system/srl_nokia-ntp:ntp",
+"value": {
+    "server": [
+        {% for server in servers %}
+        {
+        "address": "{{ server.host }}",
+        "network-instance": "{{ server.network_instance }}",
+        "source-address": "{{ server.source }}"
+        }{{ "," if not loop.last }}
+        {% endfor %}
+    ]
+}
+}

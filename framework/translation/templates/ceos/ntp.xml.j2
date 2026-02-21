@@ -7,10 +7,11 @@
       <servers>
         {% for server in servers %}
         <server>
-          <address>{{ server.ip_address }}</address>
+          <address>{{ server.host }}</address>
           <config>
-            <address>{{ server.ip_address }}</address>
-            <network-instance>{{ network_instance }}</network-instance>
+            <address>{{ server.host }}</address>
+            <source-address>{{ server.source }}</source-address> 
+            <network-instance>{{ server.network_instance }}</network-instance>
           </config>
         </server>
         {% endfor %}

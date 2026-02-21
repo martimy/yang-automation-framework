@@ -701,4 +701,10 @@ gnmic -a ceos-01:6030 -u admin -p admin -e json --insecure get --path /network-i
     ]
   }
 ]
-````
+```
+
+```
+gnmic -a ceos-01:6030 -u admin -p admin -e json --insecure get --path /system/ntp -t config
+```
+
+

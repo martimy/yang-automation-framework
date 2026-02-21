@@ -1236,3 +1236,22 @@ It is:
 If you know the YANG model, you can predict the XML.
 If you see the XML, you can reconstruct the YANG tree.
 
+# Appendix C: Getting Router Images
+
+## Getting Arista cEOS image
+
+Arista requires its users to register with arista.com before downloading any images. Once you created an account and logged in, go to the [software downloads](https://www.arista.com/en/login) section and download ceos64 tar archive for a given release.
+
+Once downloaded, import the archive with docker:
+
+```
+# import container image and save it under ceos:4.32.0F name
+docker import cEOS64-lab-4.32.0F.tar.xz ceos:4.32.0F
+```
+
+
+## Getting VyOS image
+
+VyOS does not provide a native container; you must create a container yourself by following the instruction from [containerlab](https://containerlab.dev/manual/kinds/vyosnetworks_vyos/)
+
+

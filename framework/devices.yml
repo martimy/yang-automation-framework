@@ -25,12 +25,15 @@
                 - name: Ethernet2
                   enabled: true
                   network_type: point_to_point_network
-    #   ntp:
-    #     - network_instance: MGMT
-    #       servers:
-    #         - ip_address: 192.168.100.1
-    #         - ip_address: pool.ntp.org
-    #       source_address: 192.168.100.11
+      ntp:
+        servers:
+          - host: 192.168.100.1
+            source: 192.168.100.11
+            network_instance: MGMT
+          - host: pool.ntp.org
+            source: 192.168.100.11
+            network_instance: MGMT
+        enabled: true
 - host: srl-01
   vendor: srlinux
   username: admin
@@ -50,7 +53,7 @@
         subinterface: 0
     protocols:
       ospf:
-        - name: main
+        - name: 100
           network_instance: default
           router_id: 10.0.0.1
           areas:
@@ -62,12 +65,15 @@
                 - name: ethernet-1/2.0
                   enabled: true
                   network_type: point-to-point
-    #   ntp:
-    #     - network_instance: mgmt
-    #       servers:
-    #         - ip_address: 192.168.100.1
-    #         - ip_address: pool.ntp.org
-    #       source_address: 192.168.100.12
+      ntp:
+        servers:
+          - host: 192.168.100.1
+            source: 192.168.100.12
+            network_instance: mgmt
+          - host: pool.ntp.org
+            source: 192.168.100.12
+            network_instance: mgmt
+        enabled: true
 - host: srl-02
   vendor: srlinux
   username: admin
@@ -87,7 +93,7 @@
         subinterface: 0
     protocols:
       ospf:
-        - name: main
+        - name: 100
           network_instance: default
           router_id: 10.0.0.2
           areas:
@@ -99,9 +105,12 @@
                 - name: ethernet-1/2.0
                   enabled: true
                   network_type: point-to-point
-    #   ntp:
-    #     - network_instance: mgmt
-    #       servers:
-    #         - ip_address: 192.168.100.1
-    #         - ip_address: pool.ntp.org
-    #       source_address: 192.168.100.13
+      ntp:
+        servers:
+          - host: 192.168.100.1
+            source: 192.168.100.13
+            network_instance: mgmt
+          - host: pool.ntp.org
+            source: 192.168.100.13
+            network_instance: mgmt
+        enabled: true

@@ -11,7 +11,7 @@ import traceback
 from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent, OspfAreaIntent, OspfInterfaceIntent
-from intent.ntp import NtpIntent
+from intent.ntp import NtpIntent, NtpServerIntent
 
 from registry import TRANSLATORS, ORCHESTRATORS
 from transport.netconf import NetconfTransport
@@ -99,10 +99,9 @@ def main():
                                 )
                             new_intents["protocols"]["ospf"] = ospf_intents
                         elif protocol_type == "ntp":
-                            ntp_intents = []
-                            for ntp_data in instances_data:
-                                ntp_intents.append(NtpIntent(**ntp_data))
-                            new_intents["protocols"]["ntp"] = ntp_intents
+                            servers = [NtpServerIntent(**server_data) for server_data in instances_data.get("servers", [])]
+                            ntp_intent = NtpIntent(servers=servers, enabled=instances_data.get("enabled", True))
+                            new_intents["protocols"]["ntp"] = [ntp_intent]
 
                         # Add other protocol types here (bgp, isis, etc.)
                         # elif protocol_type == "bgp":
@@ -179,7 +178,7 @@ def main():
         for ntp_intent in protocols.get("ntp", []):
             try:
                 orchestrator.configure_ntp(ntp_intent, payload_format=payload_format)
-                print(f"  ✓ NTP instance in {ntp_intent.network_instance}")
+                print(f"  ✓ NTP instance")
             except Exception as e:
                 print(f"  ✗ Failed to configure NTP : {str(e)}")
                 traceback.print_exc()

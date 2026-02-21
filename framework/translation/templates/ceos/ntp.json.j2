@@ -1,0 +1,19 @@
+{
+"path": "system/ntp",
+"value": {
+    "openconfig-system:servers": {
+        "server": [
+        {% for server in servers %}
+        {
+            "address": "{{ server.host }}",
+            "config": {
+            "address": "{{ server.host }}",
+            "network-instance": "{{ server.network_instance }}",
+            "source-address": "{{ server.source }}"
+            }
+        }{{ "," if not loop.last }}
+        {% endfor %}
+        ]
+    }
+}
+}
