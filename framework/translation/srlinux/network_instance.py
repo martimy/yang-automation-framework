@@ -1,9 +1,17 @@
+import json
+from dataclasses import asdict
+from typing import Optional, Union
 from pathlib import Path
 from typing import Optional
 import xmltodict
 
 from translation.base import BaseTranslator
 from intent.network_instance import NetworkInstanceIntent
+
+ni_types = {
+    "xml": { "L3" : "openconfig-network-instance-types:L3VRF" },
+    "json":  { "L3" : "srl_nokia-network-instance:ip-vrf" }
+}
 
 class NetworkInstanceTranslator(BaseTranslator):
     def __init__(self, template_dir: Optional[str] = None):
@@ -14,6 +22,7 @@ class NetworkInstanceTranslator(BaseTranslator):
             self.template_dir = Path(__file__).parent.parent / "templates" / "srlinux"
 
     def _build_data_structure(self, intent: NetworkInstanceIntent) -> dict:
+
         return asdict(intent)
 
     def translate(
@@ -21,7 +30,16 @@ class NetworkInstanceTranslator(BaseTranslator):
         intent: NetworkInstanceIntent,
         payload_format: str = "xml",
     ) -> str | dict:
-        data_list = self._build_data_structure(intent)
+        # normalize to always work with a list internally
+        intents = intent if isinstance(intent, list) else [intent]
+
+        data_list = []
+        for i in intents:
+            st = self._build_data_structure(i)
+            st["type"] = ni_types[payload_format][st["type"]]
+            print(st)
+            data_list.append(st)
+
         if payload_format == "xml":
             return self._render_and_validate_xml(data_list, "network_instance.xml.j2")
         elif payload_format == "json":
@@ -33,7 +51,7 @@ class NetworkInstanceTranslator(BaseTranslator):
         self, data_list: list[dict], template_file: str
     ) -> str:
         template = self._load_template(template_file)
-        rendered = template.render(data_list)
+        rendered = template.render(instances=data_list)
         xmltodict.parse(rendered)
         return rendered
 
@@ -41,9 +59,8 @@ class NetworkInstanceTranslator(BaseTranslator):
         self, data_list: list[dict], template_file: str
     ) -> dict:
         template = self._load_template(template_file)
-        rendered = template.render(data_list)
+        rendered = template.render(instances=data_list)
         return json.loads(rendered)
-
 
 if __name__ == "__main__":
     # For testing

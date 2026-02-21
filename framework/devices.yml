@@ -1,43 +1,47 @@
-- host: ceos-01
-  vendor: ceos
-  username: admin
-  intents:
-    interfaces:
-      - name: Ethernet1
-        description: To SRL-01
-        ip_address: 192.168.1.2
-        prefix_length: 31
-      - name: Ethernet2
-        description: To SRL-02
-        ip_address: 192.168.1.4
-        prefix_length: 31
-    protocols:
-      ospf:
-        - name: 100
-          network_instance: default
-          router_id: 10.0.0.3
-          areas:
-            - id: 0.0.0.0
-              interfaces:
-                - name: Ethernet1
-                  enabled: true
-                  network_type: point_to_point_network
-                - name: Ethernet2
-                  enabled: true
-                  network_type: point_to_point_network
-      ntp:
-        servers:
-          - host: 192.168.100.1
-            source: 192.168.100.11
-            network_instance: MGMT
-          - host: pool.ntp.org
-            source: 192.168.100.11
-            network_instance: MGMT
-        enabled: true
+# - host: ceos-01
+#   vendor: ceos
+#   username: admin
+#   intents:
+#     interfaces:
+#       - name: Ethernet1
+#         description: To SRL-01
+#         ip_address: 192.168.1.2
+#         prefix_length: 31
+#       - name: Ethernet2
+#         description: To SRL-02
+#         ip_address: 192.168.1.4
+#         prefix_length: 31
+#     protocols:
+#       ospf:
+#         - name: 100
+#           network_instance: default
+#           router_id: 10.0.0.3
+#           areas:
+#             - id: 0.0.0.0
+#               interfaces:
+#                 - name: Ethernet1
+#                   enabled: true
+#                   network_type: point_to_point_network
+#                 - name: Ethernet2
+#                   enabled: true
+#                   network_type: point_to_point_network
+#       ntp:
+#         servers:
+#           - host: 192.168.100.1
+#             source: 192.168.100.11
+#             network_instance: MGMT
+#           - host: pool.ntp.org
+#             source: 192.168.100.11
+#             network_instance: MGMT
+#         enabled: true
 - host: srl-01
   vendor: srlinux
   username: admin
   intents:
+    network_instances:
+      - name: test3
+        type: L3
+        description: "Test VRF"
     interfaces:
       - name: ethernet-1/1
         description: To cEOS-01

@@ -6,7 +6,6 @@ import argparse
 import os
 import yaml
 from dotenv import load_dotenv
-import traceback
 
 from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
@@ -34,7 +33,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # --- Protocol-to-Class Mapping ---
     transport_map = {"netconf": NetconfTransport, "gnmi": GnmiTransport}
     payload_format_map = {"netconf": "xml", "gnmi": "json"}
 
@@ -46,14 +44,12 @@ def main():
     load_dotenv()
     passwords = {"ceos": os.getenv("CEOS_PASSWORD"), "srl": os.getenv("SRL_PASSWORD")}
 
-    # Load DEVICE_REGISTRY from YAML file
     with open("devices.yml", "r") as f:
         raw_devices = yaml.safe_load(f)
 
     DEVICE_REGISTRY = []
     for raw_device in raw_devices:
         device = raw_device
-        # Re-instantiate intent objects from loaded data
         if "intents" in device:
             new_intents = {}
             for intent_type, intents_data in device["intents"].items():
@@ -67,7 +63,6 @@ def main():
                     ]
                 elif intent_type == "protocols":
                     new_intents["protocols"] = {}
-
                     for protocol_type, instances_data in intents_data.items():
                         if protocol_type == "ospf":
                             ospf_intents = []
@@ -76,17 +71,13 @@ def main():
                                 for area_data in ospf_data.get("areas", []):
                                     area_interfaces = [
                                         OspfInterfaceIntent(**iface_data)
-                                        for iface_data in area_data.get(
-                                            "interfaces", []
-                                        )
+                                        for iface_data in area_data.get("interfaces", [])
                                     ]
                                     areas.append(
                                         OspfAreaIntent(
                                             id=area_data["id"],
                                             interfaces=area_interfaces,
-                                            area_type=area_data.get(
-                                                "area_type", "normal"
-                                            ),
+                                            area_type=area_data.get("area_type", "normal"),
                                         )
                                     )
                                 ospf_intents.append(
@@ -99,98 +90,25 @@ def main():
                                 )
                             new_intents["protocols"]["ospf"] = ospf_intents
                         elif protocol_type == "ntp":
-                            servers = [NtpServerIntent(**server_data) for server_data in instances_data.get("servers", [])]
-                            ntp_intent = NtpIntent(servers=servers, enabled=instances_data.get("enabled", True))
+                            servers = [
+                                NtpServerIntent(**server_data)
+                                for server_data in instances_data.get("servers", [])
+                            ]
+                            ntp_intent = NtpIntent(
+                                servers=servers,
+                                enabled=instances_data.get("enabled", True)
+                            )
                             new_intents["protocols"]["ntp"] = [ntp_intent]
-
-                        # Add other protocol types here (bgp, isis, etc.)
-                        # elif protocol_type == "bgp":
-                        #     bgp_intents = []
-                        #     for bgp_data in instances_data:
-                        #         neighbors = [
-                        #             BgpNeighborIntent(**n) for n in bgp_data.get("neighbors", [])
-                        #         ]
-                        #         bgp_intents.append(BgpIntent(...))
-                        #     new_intents["protocols"]["bgp"] = bgp_intents
-
-                # Add other intent types here
             device["intents"] = new_intents
         DEVICE_REGISTRY.append(device)
 
-    # A mapping between intent types and orchestrator methods
-    intent_method_map = {
-        "interfaces": "configure_interface",
-        "network_instances": "configure_network_instance",
-    }
-
     for device in DEVICE_REGISTRY:
-        # if device['host'] in ["srl-01", "srl-02"]:
-        #     continue
         print(f"\n>>> Provisioning {device['host']} ({device['vendor']})")
-
-        # --- Dynamic Transport Instantiation ---
         transport = TransportClass(host=device["host"])
-
-        translators = TRANSLATORS[device["vendor"]]
-        orchestrator = ORCHESTRATORS[device["vendor"]](transport, translators)
-
+        orchestrator = ORCHESTRATORS[device["vendor"]](transport, TRANSLATORS[device["vendor"]])
         orchestrator.bootstrap()
         print(f"  ✓ Bootstrap complete")
-
-        # Configure interfaces and network instances first
-        for intent_type, intents in device["intents"].items():
-            if intent_type == "protocols":
-                continue  # Handle protocols separately below
-
-            method_name = intent_method_map.get(intent_type)
-            if not method_name:
-                print(f"  ✗ No method for intent: {intent_type}")
-                continue
-
-            configure_method = getattr(orchestrator, method_name, None)
-            if not configure_method:
-                print(f"  ✗ Orchestrator missing method: {method_name}")
-                continue
-
-            try:
-                configure_method(intents, payload_format=payload_format)
-                print(f"  ✓ {device['host']} — {intent_type} configured")
-            except Exception as e:
-                print(
-                    f"  ✗ Failed to configure {device['host']} {intent_type}: {str(e)}"
-                )
-                traceback.print_exc()
-                continue
-
-        # Now configure protocols (must come after interfaces)
-        protocols = device["intents"].get("protocols", {})
-
-        for ospf_intent in protocols.get("ospf", []):
-            try:
-                orchestrator.configure_ospf(ospf_intent, payload_format=payload_format)
-                print(
-                    f"  ✓ OSPF instance '{ospf_intent.name}' in {ospf_intent.network_instance}"
-                )
-            except Exception as e:
-                print(f"  ✗ Failed to configure OSPF '{ospf_intent.name}': {str(e)}")
-                traceback.print_exc()
-
-        for ntp_intent in protocols.get("ntp", []):
-            try:
-                orchestrator.configure_ntp(ntp_intent, payload_format=payload_format)
-                print(f"  ✓ NTP instance")
-            except Exception as e:
-                print(f"  ✗ Failed to configure NTP : {str(e)}")
-                traceback.print_exc()
-
-        # Add other protocol handlers here
-        # for bgp_intent in protocols.get("bgp", []):
-        #     try:
-        #         orchestrator.configure_bgp(bgp_intent, payload_format=payload_format)
-        #         print(f"  ✓ BGP AS {bgp_intent.as_number} in {bgp_intent.network_instance}")
-        #     except Exception as e:
-        #         print(f"  ✗ Failed to configure BGP: {str(e)}")
-        #         traceback.print_exc()
+        orchestrator.provision(device["intents"], payload_format=payload_format)
 
 
 if __name__ == "__main__":

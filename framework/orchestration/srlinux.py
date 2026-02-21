@@ -19,6 +19,12 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
         # but we verify it exists before proceeding
         return True
 
+    def configure_network_instance(self, intent: NetworkInstanceIntent, payload_format: str = "xml") -> bool:
+        ni_payload = self.translators["network_instance"].translate(
+            intent, payload_format=payload_format
+        )
+        return self.transport.push_config(ni_payload)
+
     def configure_interface(
         self, intent: list[InterfaceIntent], payload_format: str = "xml"
     ) -> bool:
@@ -28,32 +34,9 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
             intent, payload_format=payload_format
         )
 
-        # Step 2: Create a network instance if it does noyt exist
-
         self.transport.push_config(subif_payload)
 
-        # if self.transport.push_config(subif_payload):
-        #     ni_list = []
-        #     for i in intnet:
-        #         if i in ni_list:
-        #             continue # do this once per instance
-        #         else:
-        #             ni_list.append(i)
-        #             ni_payload = self.translators["network_instance"].translate(
-        #                 NetworkInstanceIntent(
-        #                     name=i.network_instance,
-        #                     type="ip-vrf",
-        #                     description="default",
-        #                 ),
-        #                 payload_format=payload_format
-        #             )
-
-        #             if not self.transport.push_config(ni_payload):
-        #                 return False
-        # else:
-        #     return False
-
-        # Step 3: Associate an interface to an instance
+        # Step 2: Associate an interface to an instance
 
         if self.transport.push_config(subif_payload):
             for i in intent:

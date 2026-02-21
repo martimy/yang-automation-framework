@@ -1,0 +1,14 @@
+[
+{% for ni in instances %}
+{
+"path": "srl_nokia-network-instance:network-instance[name={{ ni.name}}]",
+"value": {
+  
+    "admin-state": "enable",
+    "description": "{{ ni.description }}",
+    "type": "{{ ni.type }}"
+  
+}
+}{{ "," if not loop.last }}
+{% endfor %}
+]

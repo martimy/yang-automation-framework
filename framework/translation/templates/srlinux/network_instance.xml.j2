@@ -1,8 +1,14 @@
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"> <!--important-->
-  <network-instance xmlns="urn:nokia.com:srlinux:net-inst:network-instance">
-      <name>{{ name }}</name>
-      <type>{{ type }}</type>
-      <admin-state>enable</admin-state>
-      <description>{{ description }}</description>
-  </network-instance>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<network-instances xmlns="http://openconfig.net/yang/network-instance">
+    {% for ni in instances %}
+    <network-instance>
+        <name>{{ ni.name }}</name>
+        <config>
+            <name>{{ ni.name }}</name>
+            <description> {{ ni.description }}</description>
+            <type xmlns:openconfig-network-instance-types="http://openconfig.net/yang/network-instance-types">{{ ni.type }}</type>
+        </config>
+    </network-instance>
+    {% endfor %}
+</network-instances>
 </config>
