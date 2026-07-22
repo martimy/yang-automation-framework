@@ -31,16 +31,16 @@ The system is built on a four-layer architecture that separates the *intent* (wh
 ## Directory Structure
 
 ```text
-yang_course/
-├── main.py              # Application entry point; drives the provisioning loop.
+framework/
+├── deploy.py            # Application entry point; drives the provisioning loop.
 ├── registry.py          # Glue logic; maps vendors to their specific components.
 ├── devices.yml          # Inventory and intent definitions (The "Source of Truth").
+├── .env.example         # Template for CEOS_PASSWORD / SRL_PASSWORD — copy to .env.
 ├── intent/              # Vendor-neutral data models for OSPF, NTP, Interfaces, etc.
 ├── orchestration/       # Vendor-specific workflow logic (Ceos vs. SR-Linux).
 ├── translation/         # Jinja2-based payload generation logic.
 │   ├── ceos/            # Arista-specific translators.
 │   ├── srlinux/         # Nokia-specific translators.
-│   ├── common/          # Shared translators (e.g., OpenConfig NTP).
 │   └── templates/       # The raw XML/JSON Jinja2 templates.
 └── transport/           # NETCONF and gNMI protocol implementations.
 ```
@@ -49,11 +49,11 @@ yang_course/
 
 ## Key Workflow
 
-1.  **Initialization**: `main.py` loads credentials from `.env` and device intents from `devices.yml`.
+1.  **Initialization**: `deploy.py` loads credentials from `.env` and device intents from `devices.yml`.
 2.  **Registration**: `registry.py` provides the orchestrator and translators required for the specific vendor (e.g., `ceos` or `srlinux`).
 3.  **Bootstrap**: The orchestrator performs one-time prerequisites (e.g., enabling `ip routing` on cEOS).
 4.  **Sequential Provisioning**:
-    -   `main.py` passes intents to the orchestrator.
+    -   `deploy.py` passes intents to the orchestrator.
     -   The orchestrator uses translators to generate the payload.
     -   The orchestrator pushes the payload via the transport layer.
 5.  **Safe Delivery**: The `NetconfTransport` utilizes the **Candidate → Validate → Confirmed-Commit** sequence to ensure atomic and safe configuration changes.
@@ -69,7 +69,7 @@ yang_course/
     4.  Update the `DeviceOrchestrator` base class and implementations with `configure_bgp()`.
 -   **To add a new Transport**:
     1.  Implement a new class in `transport/` (e.g., `RestconfTransport`).
-    2.  Update the transport map in `main.py`.
+    2.  Update the transport map in `deploy.py`.
 
 ---
 
@@ -79,8 +79,8 @@ The tool supports dynamic transport selection via CLI flags:
 
 ```bash
 # Provision using NETCONF
-python3 main.py --transport netconf
+python3 deploy.py --transport netconf
 
 # Provision using gNMI
-python3 main.py --transport gnmi
+python3 deploy.py --transport gnmi
 ```

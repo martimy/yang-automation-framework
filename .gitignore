@@ -1,9 +1,26 @@
-__pycache__
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets - never commit real credentials
+.env
+framework/.env
+
+# containerlab runtime state
 .ylab/
+clab-lab/
 /openconfig
-/clab-lab/
 /tests/
 /ietf/
 /nokia/
 /srlinux/
 /arista/
+/backup
+*.yang
+
+# Editor/OS cruft
+.DS_Store
+.vscode/
+

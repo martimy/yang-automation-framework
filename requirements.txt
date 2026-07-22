@@ -1,0 +1,10 @@
+# Core dependencies for the lab-discovery scripts, prototype, and framework
+ncclient>=0.6.15
+pygnmi>=0.8.13
+jinja2>=3.1
+PyYAML>=6.0
+python-dotenv>=1.0
+xmltodict>=0.13
+
+# Optional but recommended for exploring YANG models
+# pyang (install separately: pip install pyang)

@@ -35,7 +35,8 @@ if device in devices:
 
             has_candidate = ":candidate" in caps
             has_validate = ":validate" in caps
-            has_confirmed_commit = ":has_confirmed_commit" in caps
+            has_confirmed_commit = ":confirmed-commit" in caps
+            CONFIRM_TIMEOUT = 60  # seconds to wait before an unconfirmed commit rolls back
 
             if has_candidate:
                 m.edit_config(target="candidate", config=payload_xml)
@@ -44,7 +45,7 @@ if device in devices:
                     m.validate(source="candidate")
 
                 if has_confirmed_commit:
-                    m.commit(confirmed=True, timeout=str(timeout))
+                    m.commit(confirmed=True, timeout=str(CONFIRM_TIMEOUT))
 
                 m.commit()
                 print("Configuration is committed")
