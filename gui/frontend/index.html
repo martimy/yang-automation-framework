@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>clab_yang_netconf_gnmi — pipeline GUI</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/js-yaml@4/dist/js-yaml.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 1000px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .lane { margin-bottom: 20px; }
+  .lane-label { font-size: 12px; color: #666; margin-bottom: 6px; }
+  .stages { display: flex; align-items: stretch; gap: 6px; }
+  .stage {
+    flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 8px 10px;
+    cursor: pointer; background: #fafafa; min-width: 0;
+  }
+  .stage.selected { border-color: #333; background: #eee; }
+  .stage .title { font-weight: 600; font-size: 13px; }
+  .stage .sub2 { font-size: 11px; color: #777; }
+  .arrow { display: flex; align-items: center; color: #999; font-size: 14px; }
+  .panel { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin-top: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; }
+  .tabs button.active { background: #333; color: #fff; border-color: #333; }
+  textarea { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 12px; height: 260px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid #eee; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #eee; }
+  .badge.warn { background: #fdf0d5; }
+  pre { background: #f5f5f5; padding: 10px; border-radius: 6px; font-size: 11px; overflow-x: auto; white-space: pre-wrap; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  button.primary { padding: 8px 16px; border-radius: 6px; border: none; background: #222; color: #fff; cursor: pointer; }
+  button.primary:disabled { background: #999; cursor: default; }
+  .translation-item { border-bottom: 1px solid #eee; padding: 8px 0; }
+  .error { color: #a33; }
+  .ok { color: #277; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>clab_yang_netconf_gnmi</h1>
+  <div class="sub">intent &rarr; orchestration &rarr; translation &rarr; transport, per device</div>
+
+  <div v-for="device in devices" :key="device.host" class="lane">
+    <div class="lane-label">{{ device.host }} ({{ device.vendor }})</div>
+    <div class="stages">
+      <div v-for="(stage, i) in stages" :key="stage.key">
+        <div class="stages" style="display:contents">
+          <div
+            class="stage"
+            :class="{selected: selected.host === device.host && selected.stage === stage.key}"
+            @click="select(device.host, stage.key)">
+            <div class="title">{{ stage.label }}</div>
+            <div class="sub2">{{ stage.sub }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" v-if="selected.host">
+    <h2>{{ selected.host }} &mdash; {{ stageLabel(selected.stage) }}</h2>
+
+    <!-- INTENT -->
+    <div v-if="selected.stage === 'intent'">
+      <div class="tabs">
+        <button :class="{active: intentView==='form'}" @click="intentView='form'">Form</button>
+        <button :class="{active: intentView==='code'}" @click="switchToCode()">Raw YAML</button>
+      </div>
+
+      <div v-if="intentView==='form'">
+        <table>
+          <tr><th>category</th><th>count</th></tr>
+          <tr v-for="(count, cat) in currentDevice ? currentDevice.counts : {}" :key="cat">
+            <td>{{ cat }}</td><td>{{ count }}</td>
+          </tr>
+        </table>
+        <p style="font-size:12px;color:#777">
+          Per-field form editing generates from the framework's own intent dataclasses
+          (see <code>/api/schema/intents</code>) &mdash; wire the specific field inputs here
+          next. Raw YAML editing below already works end to end.
+        </p>
+      </div>
+
+      <div v-else>
+        <textarea v-model="intentYamlText"></textarea>
+        <div class="row" style="margin-top:8px">
+          <span class="error" v-if="intentSaveError">{{ intentSaveError }}</span>
+          <span class="ok" v-if="intentSaveOk">Saved.</span>
+          <button class="primary" @click="saveIntentYaml">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORCHESTRATION -->
+    <div v-if="selected.stage === 'orch'">
+      <p><span class="badge">inspect only</span></p>
+      <table v-if="orchestrationInfo">
+        <tr><td>orchestrator class</td><td>{{ orchestrationInfo.orchestrator_class }}</td></tr>
+        <tr><td>phase order</td><td>{{ orchestrationInfo.phase_order.join(' \u2192 ') }}</td></tr>
+      </table>
+      <p style="font-size:12px;color:#777">
+        One orchestrator class per vendor today &mdash; nothing to choose between yet.
+        This becomes a real selector if alternate orchestration strategies are added.
+      </p>
+    </div>
+
+    <!-- TRANSLATION -->
+    <div v-if="selected.stage === 'trans'">
+      <div class="row">
+        <span class="badge">side-effect free &mdash; no transport call</span>
+        <select v-model="translateTransport" @change="loadTranslation">
+          <option value="netconf">netconf (xml)</option>
+          <option value="gnmi">gnmi (json)</option>
+        </select>
+      </div>
+      <div v-for="entry in translationPreview" :key="entry.category + JSON.stringify(entry.intent)" class="translation-item">
+        <div class="badge">{{ entry.category }}</div>
+        <pre>{{ formatPayload(entry.payload) }}</pre>
+      </div>
+    </div>
+
+    <!-- TRANSPORT / DEPLOY -->
+    <div v-if="selected.stage === 'transport'">
+      <div class="row" style="margin-bottom:12px">
+        <select v-model="deployTransport">
+          <option value="netconf">netconf</option>
+          <option value="gnmi">gnmi</option>
+        </select>
+        <button class="primary" :disabled="deploying" @click="confirmDeploy">
+          {{ deploying ? 'Deploying\u2026' : 'Deploy' }}
+        </button>
+      </div>
+      <div v-if="deployResult">
+        <p :class="deployResult.success ? 'ok' : 'error'">
+          {{ deployResult.success ? 'Success' : 'Failed' }}
+          <span v-if="deployResult.error"> &mdash; {{ deployResult.error }}</span>
+        </p>
+        <pre>{{ deployResult.log }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      apiBase: '/api',
+      stages: [
+        { key: 'intent', label: 'Intent', sub: 'devices.yml entry' },
+        { key: 'orch', label: 'Orchestration', sub: 'phase order' },
+        { key: 'trans', label: 'Translation', sub: 'YANG payload' },
+        { key: 'transport', label: 'Transport', sub: 'NETCONF / gNMI' },
+      ],
+      devices: [],
+      selected: { host: null, stage: null },
+      intentView: 'form',
+      intentYamlText: '',
+      intentSaveError: '',
+      intentSaveOk: false,
+      orchestrationInfo: null,
+      translationPreview: [],
+      translateTransport: 'netconf',
+      deployTransport: 'netconf',
+      deploying: false,
+      deployResult: null,
+    };
+  },
+  computed: {
+    currentDevice() {
+      return this.devices.find(d => d.host === this.selected.host) || null;
+    },
+  },
+  methods: {
+    stageLabel(key) {
+      const s = this.stages.find(s => s.key === key);
+      return s ? s.label : key;
+    },
+    async fetchDevices() {
+      const res = await fetch(`${this.apiBase}/devices`);
+      this.devices = await res.json();
+      if (this.devices.length && !this.selected.host) {
+        this.select(this.devices[0].host, 'intent');
+      }
+    },
+    async select(host, stage) {
+      this.selected = { host, stage };
+      this.deployResult = null;
+      this.intentSaveError = '';
+      this.intentSaveOk = false;
+      if (stage === 'orch') await this.loadOrchestration();
+      if (stage === 'trans') await this.loadTranslation();
+      if (stage === 'intent' && this.intentView === 'code') await this.loadIntentYaml();
+    },
+    async switchToCode() {
+      this.intentView = 'code';
+      await this.loadIntentYaml();
+    },
+    async loadIntentYaml() {
+      const res = await fetch(`${this.apiBase}/devices/${this.selected.host}`);
+      const data = await res.json();
+      this.intentYamlText = jsyaml.dump(data.intents, { sortKeys: false });
+    },
+    async saveIntentYaml() {
+      this.intentSaveError = '';
+      this.intentSaveOk = false;
+      let intents;
+      try {
+        intents = jsyaml.load(this.intentYamlText);
+      } catch (e) {
+        this.intentSaveError = `Invalid YAML: ${e.message}`;
+        return;
+      }
+      const device = this.currentDevice;
+      const res = await fetch(`${this.apiBase}/devices/${this.selected.host}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host: this.selected.host, vendor: device.vendor, intents }),
+      });
+      if (res.ok) {
+        this.intentSaveOk = true;
+        await this.fetchDevices();
+      } else {
+        const err = await res.json();
+        this.intentSaveError = err.detail || 'Save failed';
+      }
+    },
+    async loadOrchestration() {
+      const res = await fetch(`${this.apiBase}/orchestration/${this.selected.host}`);
+      this.orchestrationInfo = await res.json();
+    },
+    async loadTranslation() {
+      const res = await fetch(`${this.apiBase}/pipeline/${this.selected.host}/translate?transport=${this.translateTransport}`);
+      this.translationPreview = await res.json();
+    },
+    formatPayload(payload) {
+      return typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+    },
+    async confirmDeploy() {
+      const msg = `Deploy to ${this.selected.host} over ${this.deployTransport}?`;
+      if (!window.confirm(msg)) return;
+      this.deploying = true;
+      this.deployResult = null;
+      try {
+        const res = await fetch(`${this.apiBase}/deploy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host: this.selected.host, transport: this.deployTransport }),
+        });
+        this.deployResult = await res.json();
+      } finally {
+        this.deploying = false;
+      }
+    },
+  },
+  mounted() {
+    this.fetchDevices();
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

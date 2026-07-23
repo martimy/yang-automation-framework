@@ -1,0 +1,305 @@
+"""
+Wraps the existing framework package (framework/deploy.py's logic, split
+into reusable pieces) for the GUI:
+
+  load_devices()        -- devices.yml -> list of dicts with hydrated
+                            intent dataclasses (same shape deploy.py builds)
+  save_devices(devices)  -- reverse of the above, back to devices.yml
+  preview_translation()  -- runs ONLY the Translation stage (translator.translate)
+                            for a device, without calling transport.push_config.
+                            This is what powers "inspect the Translation stage"
+                            with zero side effects on real devices.
+  run_deployment()       -- runs orchestrator.bootstrap() + .provision(), i.e.
+                            Orchestration -> Translation -> Transport for real,
+                            captures stdout, returns one structured result.
+
+Nothing here talks to devices.yml's on-disk YAML comments/formatting -- ruamel
+would preserve those if that's wanted later; plain PyYAML is used for now,
+consistent with what deploy.py already does.
+"""
+
+import contextlib
+import dataclasses
+import io
+import os
+from pathlib import Path
+from typing import Any
+
+import yaml
+from dotenv import load_dotenv
+
+import framework_bridge  # noqa: F401  (side effect: sys.path)
+from framework_bridge import DEVICES_YML, FRAMEWORK_DIR
+
+from intent.interface import InterfaceIntent
+from intent.network_instance import NetworkInstanceIntent
+from intent.ospf import OspfIntent, OspfAreaIntent, OspfInterfaceIntent
+from intent.ntp import NtpIntent, NtpServerIntent
+
+from registry import TRANSLATORS, ORCHESTRATORS
+from transport.netconf import NetconfTransport
+from transport.gnmi import GnmiTransport
+
+TRANSPORT_MAP = {"netconf": NetconfTransport, "gnmi": GnmiTransport}
+PAYLOAD_FORMAT_MAP = {"netconf": "xml", "gnmi": "json"}
+
+
+class ValidationError(Exception):
+    """Raised when a device entry from the GUI doesn't hydrate cleanly."""
+
+
+# ---------------------------------------------------------------------------
+# Hydration: raw dict (as read from YAML / posted by the GUI) -> dataclasses.
+# This mirrors the loop in deploy.py's main(), extracted so both the CLI
+# and the GUI share one implementation instead of drifting apart.
+# ---------------------------------------------------------------------------
+
+def hydrate_intents(raw_intents: dict) -> dict:
+    new_intents: dict[str, Any] = {}
+
+    if "interfaces" in raw_intents:
+        new_intents["interfaces"] = [
+            InterfaceIntent(**data) for data in raw_intents["interfaces"]
+        ]
+
+    if "network_instances" in raw_intents:
+        new_intents["network_instances"] = [
+            NetworkInstanceIntent(**data) for data in raw_intents["network_instances"]
+        ]
+
+    if "protocols" in raw_intents:
+        new_intents["protocols"] = {}
+        protocols = raw_intents["protocols"]
+
+        if "ospf" in protocols:
+            ospf_intents = []
+            for ospf_data in protocols["ospf"]:
+                areas = []
+                for area_data in ospf_data.get("areas", []):
+                    area_interfaces = [
+                        OspfInterfaceIntent(**iface_data)
+                        for iface_data in area_data.get("interfaces", [])
+                    ]
+                    areas.append(
+                        OspfAreaIntent(
+                            id=area_data["id"],
+                            interfaces=area_interfaces,
+                            area_type=area_data.get("area_type", "normal"),
+                        )
+                    )
+                ospf_intents.append(
+                    OspfIntent(
+                        name=ospf_data["name"],
+                        network_instance=ospf_data["network_instance"],
+                        router_id=ospf_data.get("router_id"),
+                        areas=areas,
+                    )
+                )
+            new_intents["protocols"]["ospf"] = ospf_intents
+
+        if "ntp" in protocols:
+            ntp_data = protocols["ntp"]
+            servers = [
+                NtpServerIntent(**server_data)
+                for server_data in ntp_data.get("servers", [])
+            ]
+            new_intents["protocols"]["ntp"] = [
+                NtpIntent(servers=servers, enabled=ntp_data.get("enabled", True))
+            ]
+
+    return new_intents
+
+
+def hydrate_device(raw_device: dict) -> dict:
+    device = dict(raw_device)
+    if "intents" in device:
+        try:
+            device["intents"] = hydrate_intents(device["intents"])
+        except (TypeError, KeyError) as exc:
+            raise ValidationError(f"{device.get('host', '?')}: {exc}") from exc
+    return device
+
+
+# ---------------------------------------------------------------------------
+# Dehydration: dataclasses -> plain dict, matching devices.yml's own shape
+# (not just dataclasses.asdict's default shape -- ntp in particular is
+# stored as a single dict in the YAML but as a 1-item list internally,
+# same asymmetry deploy.py's hydration introduces).
+# ---------------------------------------------------------------------------
+
+def dehydrate_intents(intents: dict) -> dict:
+    raw: dict[str, Any] = {}
+
+    if "interfaces" in intents:
+        raw["interfaces"] = [dataclasses.asdict(i) for i in intents["interfaces"]]
+
+    if "network_instances" in intents:
+        raw["network_instances"] = [
+            dataclasses.asdict(i) for i in intents["network_instances"]
+        ]
+
+    if "protocols" in intents:
+        raw["protocols"] = {}
+        protocols = intents["protocols"]
+
+        if "ospf" in protocols:
+            raw["protocols"]["ospf"] = [dataclasses.asdict(i) for i in protocols["ospf"]]
+
+        if "ntp" in protocols:
+            # hydrate_intents wraps the single NTP instance in a 1-item list;
+            # unwrap it back to the flat dict devices.yml expects.
+            (ntp_intent,) = protocols["ntp"]
+            raw["protocols"]["ntp"] = dataclasses.asdict(ntp_intent)
+
+    return raw
+
+
+def dehydrate_device(device: dict) -> dict:
+    raw = dict(device)
+    if "intents" in raw:
+        raw["intents"] = dehydrate_intents(raw["intents"])
+    return raw
+
+
+# ---------------------------------------------------------------------------
+# Load / save
+# ---------------------------------------------------------------------------
+
+def load_raw_devices() -> list[dict]:
+    with open(DEVICES_YML, "r") as f:
+        return yaml.safe_load(f) or []
+
+
+def load_devices() -> list[dict]:
+    """List of devices with intents hydrated into dataclasses."""
+    return [hydrate_device(d) for d in load_raw_devices()]
+
+
+def load_device(host: str) -> dict:
+    for device in load_devices():
+        if device["host"] == host:
+            return device
+    raise KeyError(host)
+
+
+def save_devices(devices: list[dict]) -> None:
+    """
+    devices: list of dicts, intents already hydrated into dataclasses
+    (i.e. what load_devices() returns, after edits).
+    """
+    raw = [dehydrate_device(d) for d in devices]
+    with open(DEVICES_YML, "w") as f:
+        yaml.safe_dump(raw, f, sort_keys=False)
+
+
+def save_device(host: str, updated_device: dict) -> None:
+    devices = load_devices()
+    for i, device in enumerate(devices):
+        if device["host"] == host:
+            devices[i] = updated_device
+            break
+    else:
+        raise KeyError(host)
+    save_devices(devices)
+
+
+# ---------------------------------------------------------------------------
+# Translation stage preview -- Intent -> Translation only, no transport call.
+# ---------------------------------------------------------------------------
+
+def preview_translation(host: str, payload_format: str = "xml") -> list[dict]:
+    """
+    Runs each intent through its translator and returns the rendered
+    payload, WITHOUT calling transport.push_config. This is what the
+    Translation stage inspector in the canvas shows -- side-effect-free
+    by construction, so clicking around the GUI never touches a real device.
+    """
+    device = load_device(host)
+    vendor = device["vendor"]
+    translators = TRANSLATORS[vendor]
+    intents = device.get("intents", {})
+    results = []
+
+    for ni in intents.get("network_instances", []):
+        if "network_instance" in translators:
+            payload = translators["network_instance"].translate(
+                ni, payload_format=payload_format
+            )
+            results.append(_preview_entry("network_instances", ni, payload))
+
+    for iface in intents.get("interfaces", []):
+        key = "subinterface" if "subinterface" in translators else "interface"
+        if key in translators:
+            payload = translators[key].translate([iface], payload_format=payload_format)
+            results.append(_preview_entry("interfaces", iface, payload))
+        # SR Linux's orchestrator (orchestration/srlinux.py configure_interface)
+        # pushes a SECOND payload per interface -- binding the new subinterface
+        # to its network-instance -- via the separately registered "ni_interface"
+        # translator. cEOS has no such translator registered, so this only
+        # fires for vendors that actually do it during a real deploy.
+        if "ni_interface" in translators:
+            binding_payload = translators["ni_interface"].translate(
+                iface, payload_format=payload_format
+            )
+            results.append(_preview_entry("interfaces_ni_binding", iface, binding_payload))
+
+    protocols = intents.get("protocols", {})
+    for ospf in protocols.get("ospf", []):
+        if "ospf" in translators:
+            payload = translators["ospf"].translate(ospf, payload_format=payload_format)
+            results.append(_preview_entry("ospf", ospf, payload))
+
+    for ntp in protocols.get("ntp", []):
+        if "ntp" in translators:
+            payload = translators["ntp"].translate(ntp, payload_format=payload_format)
+            results.append(_preview_entry("ntp", ntp, payload))
+
+    return results
+
+
+def _preview_entry(category: str, intent_obj: Any, payload: Any) -> dict:
+    is_dataclass = dataclasses.is_dataclass(intent_obj)
+    return {
+        "category": category,
+        "intent": dataclasses.asdict(intent_obj) if is_dataclass else intent_obj,
+        "payload": payload if isinstance(payload, str) else payload,
+        "payload_is_xml": isinstance(payload, str),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Deployment -- the real thing: Orchestration -> Translation -> Transport.
+# ---------------------------------------------------------------------------
+
+def run_deployment(host: str, transport_kind: str = "netconf") -> dict:
+    if transport_kind not in TRANSPORT_MAP:
+        raise ValueError(f"Unknown transport '{transport_kind}', expected one of {list(TRANSPORT_MAP)}")
+
+    device = load_device(host)
+    vendor = device["vendor"]
+
+    load_dotenv(FRAMEWORK_DIR / ".env")
+
+    TransportClass = TRANSPORT_MAP[transport_kind]
+    payload_format = PAYLOAD_FORMAT_MAP[transport_kind]
+
+    log = io.StringIO()
+    result = {"host": host, "vendor": vendor, "transport": transport_kind, "success": False}
+
+    try:
+        with contextlib.redirect_stdout(log):
+            print(f"--- Using {transport_kind.upper()} transport ---")
+            transport = TransportClass(host=host)
+            orchestrator = ORCHESTRATORS[vendor](transport, TRANSLATORS[vendor])
+            orchestrator.bootstrap()
+            print("  \u2713 Bootstrap complete")
+            orchestrator.provision(device.get("intents", {}), payload_format=payload_format)
+        result["success"] = True
+    except Exception as exc:  # noqa: BLE001 -- deliberately broad: this is a
+        # user-triggered deploy against a live device; any failure (auth,
+        # unreachable host, translator error) should come back as a result,
+        # not a 500.
+        result["error"] = f"{type(exc).__name__}: {exc}"
+
+    result["log"] = log.getvalue()
+    return result
