@@ -98,6 +98,7 @@ from the `scripts/` directory for this stage.
 
    ```bash
    git clone https://github.com/openconfig/public openconfig
+   python3 get_schema.py ceos openconfig-if-ip ./
    pyang -f tree -p openconfig openconfig-if-ip.yang
    ```
 
