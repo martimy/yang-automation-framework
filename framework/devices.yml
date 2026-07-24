@@ -44,8 +44,6 @@
           source: 192.168.100.11
           network_instance: MGMT
         enabled: true
-      snmp:
-        enabled: true
 - host: srl-01
   vendor: srlinux
   username: admin

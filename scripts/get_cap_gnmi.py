@@ -1,3 +1,4 @@
+import sys
 from pygnmi.client import gNMIclient
 
 srl_params = {
@@ -14,16 +15,28 @@ ceos_params = {
     "insecure": True,
 }
 
+devices = ["srl", "ceos"]
+
 if __name__ == "__main__":
-    # Create gNMI client connection
-    with gNMIclient(**srl_params) as gc:
+    if len(sys.argv) < 2:
+        print(f"Expecting: {sys.argv[0]} <device>")
+        sys.exit(0)
 
-        # Retrieve capabilities
-        capabilities = gc.capabilities()
+    device = sys.argv[1]
+    if device in devices:
+        params = srl_params if device == "srl" else ceos_params
 
-        caps = [
-            f'{c["name"]}, {c["organization"]}, {c["version"]}'
-            for c in capabilities["supported_models"]
-        ]
-        for cap in sorted(caps):
-            print(cap)
+        # Create gNMI client connection
+        with gNMIclient(**params) as gc:
+
+            # Retrieve capabilities
+            capabilities = gc.capabilities()
+
+            caps = [
+                f'{c["name"]}, {c["organization"]}, {c["version"]}'
+                for c in capabilities["supported_models"]
+            ]
+            for cap in sorted(caps):
+                print(cap)
+    else:
+        print(f"Avaliable devices are: {', '.join(devices)}.")
