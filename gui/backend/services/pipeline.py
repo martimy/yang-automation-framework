@@ -296,6 +296,11 @@ def preview_translation(host: str, payload_format: str = "xml") -> list[dict]:
             payload = translators["ntp"].translate(ntp, payload_format=payload_format)
             results.append(_preview_entry("ntp", ntp, payload))
 
+    for snmp in protocols.get("snmp", []):
+        if "snmp" in translators:
+            payload = translators["snmp"].translate(snmp, payload_format=payload_format)
+            results.append(_preview_entry("snmp", snmp, payload))
+
     return results
 
 

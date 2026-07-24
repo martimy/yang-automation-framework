@@ -23,6 +23,7 @@ from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent, OspfAreaIntent, OspfInterfaceIntent
 from intent.ntp import NtpIntent, NtpServerIntent
+from intent.snmp import SnmpIntent
 from registry import TRANSLATORS
 
 # Intent dataclasses actually wired into deploy.py's hydration path today.
@@ -35,6 +36,7 @@ INTENT_CLASSES: dict[str, type] = {
     "network_instances": NetworkInstanceIntent,
     "ospf": OspfIntent,
     "ntp": NtpIntent,
+    "snmp": SnmpIntent,
 }
 
 # Nested dataclasses referenced by the top-level ones above, needed so the
