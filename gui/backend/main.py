@@ -47,11 +47,15 @@ def get_device(host: str):
         device = pipeline.load_device(host)
     except KeyError:
         raise HTTPException(404, f"No device '{host}' in devices.yml")
+    intents = pipeline.dehydrate_intents(device.get("intents", {}))
     return {
         "host": device["host"],
         "vendor": device["vendor"],
         "username": device.get("username"),
-        "intents": pipeline.dehydrate_intents(device.get("intents", {})),
+        "intents": intents,
+        # Keys with no dataclass/translator behind them (e.g. a hand-added
+        # "protocols.snmp" block) -- preserved on save, but never deployed.
+        "warnings": pipeline.unrecognized_intent_keys(intents),
     }
 
 
@@ -65,6 +69,7 @@ class DeviceUpdate(BaseModel):
 @app.put("/api/devices/{host}")
 def update_device(host: str, update: DeviceUpdate):
     raw = update.model_dump()
+    warnings = pipeline.unrecognized_intent_keys(raw.get("intents", {}))
     try:
         hydrated = pipeline.hydrate_device(raw)
     except pipeline.ValidationError as exc:
@@ -75,7 +80,7 @@ def update_device(host: str, update: DeviceUpdate):
     except KeyError:
         raise HTTPException(404, f"No device '{host}' in devices.yml")
 
-    return {"status": "saved"}
+    return {"status": "saved", "warnings": warnings}
 
 
 def _device_summary(device: dict) -> dict:

@@ -43,9 +43,28 @@ from transport.gnmi import GnmiTransport
 TRANSPORT_MAP = {"netconf": NetconfTransport, "gnmi": GnmiTransport}
 PAYLOAD_FORMAT_MAP = {"netconf": "xml", "gnmi": "json"}
 
+# The only top-level / protocols keys the framework's dataclasses actually
+# understand today. Anything else (e.g. a hand-added "protocols: {snmp: ...}"
+# block) has no dataclass, translator, or orchestrator wiring behind it --
+# hydrate_intents/dehydrate_intents preserve it verbatim through save/load
+# rather than silently discarding it, but nothing will ever translate or
+# deploy it. unrecognized_intent_keys() is how callers surface that as a
+# warning instead of letting it pass silently.
+KNOWN_TOP_LEVEL_INTENT_KEYS = {"interfaces", "network_instances", "protocols"}
+KNOWN_PROTOCOL_KEYS = {"ospf", "ntp"}
+
 
 class ValidationError(Exception):
     """Raised when a device entry from the GUI doesn't hydrate cleanly."""
+
+
+def unrecognized_intent_keys(raw_intents: dict) -> list[str]:
+    """Human-readable dotted names (e.g. 'protocols.snmp') for any key in a
+    raw intents dict that the framework has no dataclass/translator for."""
+    unrecognized = [k for k in raw_intents if k not in KNOWN_TOP_LEVEL_INTENT_KEYS]
+    protocols = raw_intents.get("protocols") or {}
+    unrecognized += [f"protocols.{k}" for k in protocols if k not in KNOWN_PROTOCOL_KEYS]
+    return unrecognized
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +126,19 @@ def hydrate_intents(raw_intents: dict) -> dict:
                 NtpIntent(servers=servers, enabled=ntp_data.get("enabled", True))
             ]
 
+        # Anything else under protocols (e.g. a hand-added "snmp" block) has
+        # no dataclass/translator behind it -- pass it through untouched so
+        # a save never silently discards it. See unrecognized_intent_keys().
+        for key, value in protocols.items():
+            if key not in KNOWN_PROTOCOL_KEYS:
+                new_intents["protocols"][key] = value
+
+    # Same for unrecognized top-level keys (anything besides interfaces /
+    # network_instances / protocols).
+    for key, value in raw_intents.items():
+        if key not in KNOWN_TOP_LEVEL_INTENT_KEYS:
+            new_intents[key] = value
+
     return new_intents
 
 
@@ -150,6 +182,16 @@ def dehydrate_intents(intents: dict) -> dict:
             # unwrap it back to the flat dict devices.yml expects.
             (ntp_intent,) = protocols["ntp"]
             raw["protocols"]["ntp"] = dataclasses.asdict(ntp_intent)
+
+        # Pass through anything hydrate_intents preserved verbatim (plain
+        # dicts/lists, not dataclasses -- nothing to asdict()).
+        for key, value in protocols.items():
+            if key not in KNOWN_PROTOCOL_KEYS:
+                raw["protocols"][key] = value
+
+    for key, value in intents.items():
+        if key not in KNOWN_TOP_LEVEL_INTENT_KEYS:
+            raw[key] = value
 
     return raw
 

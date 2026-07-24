@@ -38,6 +38,21 @@
   .translation-item { border-bottom: 1px solid #eee; padding: 8px 0; }
   .error { color: #a33; }
   .ok { color: #277; }
+
+  .category { margin-bottom: 20px; }
+  .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .category-header .name { font-weight: 600; font-size: 13px; text-transform: capitalize; }
+  .list-item { border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 8px; background: #fcfcfc; }
+  .list-item-header { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+  .field-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .field-row label { font-size: 12px; color: #555; width: 140px; flex-shrink: 0; }
+  .field-row input[type="text"], .field-row input[type="number"] {
+    flex: 1; padding: 4px 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;
+  }
+  .nested-group { border-left: 2px solid #ddd; padding-left: 10px; margin: 6px 0 10px; }
+  .nested-group > .field-row label { font-weight: 600; }
+  button.small { font-size: 11px; padding: 3px 8px; border-radius: 5px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+  button.small.danger { color: #a33; border-color: #e6b8b8; }
 </style>
 </head>
 <body>
@@ -68,22 +83,55 @@
     <!-- INTENT -->
     <div v-if="selected.stage === 'intent'">
       <div class="tabs">
-        <button :class="{active: intentView==='form'}" @click="intentView='form'">Form</button>
+        <button :class="{active: intentView==='form'}" @click="switchToForm()">Form</button>
         <button :class="{active: intentView==='code'}" @click="switchToCode()">Raw YAML</button>
       </div>
 
-      <div v-if="intentView==='form'">
-        <table>
-          <tr><th>category</th><th>count</th></tr>
-          <tr v-for="(count, cat) in currentDevice ? currentDevice.counts : {}" :key="cat">
-            <td>{{ cat }}</td><td>{{ count }}</td>
-          </tr>
-        </table>
-        <p style="font-size:12px;color:#777">
-          Per-field form editing generates from the framework's own intent dataclasses
-          (see <code>/api/schema/intents</code>) &mdash; wire the specific field inputs here
-          next. Raw YAML editing below already works end to end.
+      <div v-if="intentWarnings.length" class="badge warn" style="display:block;margin-bottom:12px;padding:8px 10px">
+        Not recognized by the framework (saved as-is, but never translated or deployed):
+        {{ intentWarnings.join(', ') }}
+      </div>
+
+      <div v-if="intentView==='form' && formIntents">
+        <!-- list-shaped categories: interfaces, network_instances, ospf -->
+        <div v-for="cat in listCategories" :key="cat" class="category">
+          <div class="category-header">
+            <span class="name">{{ cat.replace('_', ' ') }}</span>
+            <button class="small" @click="formIntents[cat].push(makeDefault(intentSchema[cat]))">+ Add</button>
+          </div>
+          <div v-if="!formIntents[cat].length" style="font-size:12px;color:#999">none</div>
+          <div v-for="(item, idx) in formIntents[cat]" :key="idx" class="list-item">
+            <div class="list-item-header">
+              <button class="small danger" @click="formIntents[cat].splice(idx, 1)">Remove</button>
+            </div>
+            <object-fields :fields="intentSchema[cat].fields" :model-value="item"></object-fields>
+          </div>
+        </div>
+
+        <!-- object-shaped category: ntp (a single instance, not a list) -->
+        <div v-if="vendorCategories.includes('ntp')" class="category">
+          <div class="category-header">
+            <span class="name">ntp</span>
+            <button v-if="!formIntents.ntp" class="small" @click="formIntents.ntp = makeDefault(intentSchema.ntp)">+ Add</button>
+            <button v-else class="small danger" @click="formIntents.ntp = null">Remove</button>
+          </div>
+          <div v-if="formIntents.ntp" class="list-item">
+            <object-fields :fields="intentSchema.ntp.fields" :model-value="formIntents.ntp"></object-fields>
+          </div>
+          <div v-else style="font-size:12px;color:#999">none</div>
+        </div>
+
+        <p style="font-size:11px;color:#999">
+          Fields typed <code>str</code> here (e.g. OSPF process <code>name</code>) are saved as
+          strings even if devices.yml originally had a bare number &mdash; harmless for NETCONF/XML,
+          but check gNMI/JSON payloads if that field expects a numeric type.
         </p>
+
+        <div class="row" style="margin-top:8px">
+          <span class="error" v-if="intentSaveError">{{ intentSaveError }}</span>
+          <span class="ok" v-if="intentSaveOk">Saved.</span>
+          <button class="primary" @click="saveIntentForm">Save</button>
+        </div>
       </div>
 
       <div v-else>
@@ -149,6 +197,80 @@
 <script>
 const { createApp } = Vue;
 
+// Builds a blank instance matching a schema.py "object" schema (or a bare
+// [] for a "list" schema), using each field's declared default where
+// present, otherwise a type-appropriate zero value.
+function makeDefault(schemaNode) {
+  if (schemaNode.type === 'list') return [];
+  const obj = {};
+  for (const f of schemaNode.fields) {
+    if (f.type === 'list') obj[f.name] = [];
+    else if (f.type === 'object') obj[f.name] = makeDefault(f.object);
+    else if ('default' in f) obj[f.name] = f.default;
+    else if (f.type === 'bool') obj[f.name] = false;
+    else if (f.type === 'int' || f.type === 'float') obj[f.name] = 0;
+    else obj[f.name] = '';
+  }
+  return obj;
+}
+
+// Recursive form renderer: given a list of schema.py field descriptors and
+// the object they describe, renders one row per field -- text/number/checkbox
+// for primitives, a nested bordered group for "object" fields, and a
+// repeatable list-of-groups for "list" fields (e.g. OSPF areas -> interfaces).
+// modelValue is mutated in place: it's the same reactive object the parent
+// holds (formIntents.* or an item inside it), so no update:modelValue
+// round-trip is needed -- only re-assigning the prop itself would need that.
+const ObjectFields = {
+  name: 'object-fields',
+  props: { fields: Array, modelValue: Object },
+  methods: {
+    addItem(field) {
+      if (!this.modelValue[field.name]) this.modelValue[field.name] = [];
+      this.modelValue[field.name].push(makeDefault(field.items));
+    },
+    removeItem(field, idx) {
+      this.modelValue[field.name].splice(idx, 1);
+    },
+    ensureObject(field) {
+      if (!this.modelValue[field.name]) this.modelValue[field.name] = makeDefault(field.object);
+      return this.modelValue[field.name];
+    },
+    inputType(f) {
+      return f.type === 'int' || f.type === 'float' ? 'number' : 'text';
+    },
+  },
+  template: `
+    <div>
+      <template v-for="f in fields" :key="f.name">
+        <div v-if="f.type === 'list'" class="nested-group">
+          <div class="field-row"><label>{{ f.name }}</label>
+            <button class="small" @click="addItem(f)">+ Add</button>
+          </div>
+          <div v-for="(item, idx) in (modelValue[f.name] || [])" :key="idx" class="list-item">
+            <div class="list-item-header">
+              <button class="small danger" @click="removeItem(f, idx)">Remove</button>
+            </div>
+            <object-fields :fields="f.items.fields" :model-value="item"></object-fields>
+          </div>
+        </div>
+        <div v-else-if="f.type === 'object'" class="nested-group">
+          <div class="field-row"><label>{{ f.name }}</label></div>
+          <object-fields :fields="f.object.fields" :model-value="ensureObject(f)"></object-fields>
+        </div>
+        <div v-else-if="f.type === 'bool'" class="field-row">
+          <label>{{ f.name }}</label>
+          <input type="checkbox" v-model="modelValue[f.name]">
+        </div>
+        <div v-else class="field-row">
+          <label>{{ f.name }}<span v-if="f.required" title="required"> *</span></label>
+          <input :type="inputType(f)" v-model="modelValue[f.name]">
+        </div>
+      </template>
+    </div>
+  `,
+};
+
 createApp({
   data() {
     return {
@@ -165,6 +287,10 @@ createApp({
       intentYamlText: '',
       intentSaveError: '',
       intentSaveOk: false,
+      intentSchema: null,       // fetched once from /api/schema/intents, cached
+      vendorCategories: [],     // supported_intent_categories for the selected device's vendor
+      formIntents: null,        // working copy: {interfaces:[], network_instances:[], ospf:[], ntp:null}
+      intentWarnings: [],       // dotted names (e.g. "protocols.snmp") the framework has no dataclass/translator for
       orchestrationInfo: null,
       translationPreview: [],
       translateTransport: 'netconf',
@@ -176,6 +302,12 @@ createApp({
   computed: {
     currentDevice() {
       return this.devices.find(d => d.host === this.selected.host) || null;
+    },
+    listCategories() {
+      // ospf and ntp both live under devices.yml's "protocols" key, but only
+      // ntp is a single instance -- ospf is a list, same as interfaces and
+      // network_instances -- so it's grouped with the other list categories.
+      return ['interfaces', 'network_instances', 'ospf'].filter(c => this.vendorCategories.includes(c));
     },
   },
   methods: {
@@ -195,18 +327,27 @@ createApp({
       this.deployResult = null;
       this.intentSaveError = '';
       this.intentSaveOk = false;
+      this.intentWarnings = [];
       if (stage === 'orch') await this.loadOrchestration();
       if (stage === 'trans') await this.loadTranslation();
-      if (stage === 'intent' && this.intentView === 'code') await this.loadIntentYaml();
+      if (stage === 'intent') {
+        if (this.intentView === 'code') await this.loadIntentYaml();
+        else await this.loadIntentForm();
+      }
     },
     async switchToCode() {
       this.intentView = 'code';
       await this.loadIntentYaml();
     },
+    async switchToForm() {
+      this.intentView = 'form';
+      await this.loadIntentForm();
+    },
     async loadIntentYaml() {
       const res = await fetch(`${this.apiBase}/devices/${this.selected.host}`);
       const data = await res.json();
       this.intentYamlText = jsyaml.dump(data.intents, { sortKeys: false });
+      this.intentWarnings = data.warnings || [];
     },
     async saveIntentYaml() {
       this.intentSaveError = '';
@@ -226,6 +367,79 @@ createApp({
       });
       if (res.ok) {
         this.intentSaveOk = true;
+        this.intentWarnings = (await res.json()).warnings || [];
+        await this.fetchDevices();
+      } else {
+        const err = await res.json();
+        this.intentSaveError = err.detail || 'Save failed';
+      }
+    },
+    // API shape (matches devices.yml): {interfaces:[], network_instances:[], protocols:{ospf:[], ntp:{...}}}
+    // Form shape (flat, easier to template against): {interfaces:[], network_instances:[], ospf:[], ntp:{...}|null}
+    //
+    // The form only has fields for interfaces/network_instances/ospf/ntp --
+    // anything else (e.g. a "protocols.snmp" block added via the Raw YAML
+    // tab) has no form fields to show, but switching to Form and hitting
+    // Save must not silently erase it. _passthroughTop/_passthroughProtocols
+    // carry that unrecognized content through untouched.
+    apiIntentsToForm(apiIntents) {
+      const protocols = apiIntents.protocols || {};
+      const knownTop = new Set(['interfaces', 'network_instances', 'protocols']);
+      const knownProtocols = new Set(['ospf', 'ntp']);
+      const passthroughTop = {};
+      for (const k in apiIntents) if (!knownTop.has(k)) passthroughTop[k] = apiIntents[k];
+      const passthroughProtocols = {};
+      for (const k in protocols) if (!knownProtocols.has(k)) passthroughProtocols[k] = protocols[k];
+      return {
+        interfaces: apiIntents.interfaces || [],
+        network_instances: apiIntents.network_instances || [],
+        ospf: protocols.ospf || [],
+        ntp: protocols.ntp || null,
+        _passthroughTop: passthroughTop,
+        _passthroughProtocols: passthroughProtocols,
+      };
+    },
+    formToApiIntents(form) {
+      const apiIntents = { ...(form._passthroughTop || {}) };
+      if (this.vendorCategories.includes('interfaces')) apiIntents.interfaces = form.interfaces;
+      if (this.vendorCategories.includes('network_instances')) apiIntents.network_instances = form.network_instances;
+      const protocols = { ...(form._passthroughProtocols || {}) };
+      if (this.vendorCategories.includes('ospf')) protocols.ospf = form.ospf;
+      if (this.vendorCategories.includes('ntp') && form.ntp) protocols.ntp = form.ntp;
+      apiIntents.protocols = protocols;
+      return apiIntents;
+    },
+    makeDefault,
+    async loadIntentForm() {
+      if (!this.intentSchema) {
+        const res = await fetch(`${this.apiBase}/schema/intents`);
+        this.intentSchema = await res.json();
+      }
+      const device = this.currentDevice;
+      const vRes = await fetch(`${this.apiBase}/schema/vendors/${device.vendor}`);
+      this.vendorCategories = (await vRes.json()).supported_intent_categories;
+
+      const res = await fetch(`${this.apiBase}/devices/${this.selected.host}`);
+      const data = await res.json();
+      this.formIntents = this.apiIntentsToForm(data.intents);
+      this.intentWarnings = data.warnings || [];
+    },
+    async saveIntentForm() {
+      this.intentSaveError = '';
+      this.intentSaveOk = false;
+      const device = this.currentDevice;
+      const res = await fetch(`${this.apiBase}/devices/${this.selected.host}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: this.selected.host,
+          vendor: device.vendor,
+          intents: this.formToApiIntents(this.formIntents),
+        }),
+      });
+      if (res.ok) {
+        this.intentSaveOk = true;
+        this.intentWarnings = (await res.json()).warnings || [];
         await this.fetchDevices();
       } else {
         const err = await res.json();
@@ -263,7 +477,9 @@ createApp({
   mounted() {
     this.fetchDevices();
   },
-}).mount('#app');
+})
+  .component('object-fields', ObjectFields)
+  .mount('#app');
 </script>
 </body>
 </html>
