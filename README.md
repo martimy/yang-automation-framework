@@ -1,4 +1,4 @@
-# Model-Driven Network Configuration: NETCONF, gNMI, and YANG
+# Multivendor YANG Automation Framework
 
 A hands-on tutorial and reference framework for model-driven network
 automation across multiple vendors, built on a Nokia SR Linux + Arista cEOS
