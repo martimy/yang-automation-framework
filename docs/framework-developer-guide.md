@@ -73,6 +73,41 @@ framework/
 
 ---
 
+## GUI
+
+`gui/` is a second consumer of this framework — a local web app, not a
+parallel implementation. Its backend (`gui/backend/`) puts `framework/` on
+`sys.path` (`gui/backend/framework_bridge.py`) and imports `intent.*`,
+`orchestration.*`, `translation.*`, `transport.*`, and `registry` exactly
+the way `deploy.py` does, so there's one implementation of what an intent
+means, not two.
+
+Two things worth knowing if you're extending the framework and want the GUI
+to stay accurate rather than silently stale:
+
+- **The GUI derives everything from `registry.py` and `intent/*.py`, not by
+  scanning `framework/` for files.** A new intent dataclass, translator, or
+  orchestrator method only appears in the GUI once it's wired into
+  `registry.py` (for the Intent form and vendor-support checks) and, for
+  the Translation-stage preview specifically, once there's a matching call
+  in `gui/backend/services/pipeline.py`'s `preview_translation()` — this
+  needs to mirror whatever the vendor's `orchestration/<vendor>.py` does,
+  including secondary payloads like SR Linux's `ni_interface` binding
+  alongside `subinterface`. Following the "To add a new Feature" steps
+  above and registering in `registry.py` is what makes this automatic for
+  the Intent form and vendor filtering; the translation preview needs the
+  one extra step by hand.
+- **Anything not wired into `registry.py` is preserved, not silently
+  dropped.** If `devices.yml` has a key the framework has no
+  dataclass/translator for, `hydrate_intents()`/`dehydrate_intents()` in
+  `gui/backend/services/pipeline.py` round-trip it byte-for-byte and the
+  API surfaces it as a warning, rather than the GUI eating it on save.
+
+See [`gui/README.md`](../gui/README.md) for how to run it, what each
+pipeline stage shows, and current limitations.
+
+---
+
 ## Usage
 
 The tool supports dynamic transport selection via CLI flags:

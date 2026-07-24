@@ -98,7 +98,6 @@ from the `scripts/` directory for this stage.
 
    ```bash
    git clone https://github.com/openconfig/public openconfig
-   python3 get_schema.py ceos openconfig-if-ip ./
    pyang -f tree -p openconfig openconfig-if-ip.yang
    ```
 
@@ -192,7 +191,27 @@ specifics on what is and isn't runnable there.
    to point at the same devices) to confirm the configuration landed as
    intended.
 
-## 7. Extending the framework
+## 7. Stage 4 (optional) — Run the GUI
+
+`gui/` wraps the same `framework/` code from Stage 3 in a local web app —
+useful for demoing the pipeline or for editing intents without hand-writing
+YAML. It doesn't replace `deploy.py`; it's a second way to drive the same
+provisioning logic.
+
+```bash
+pip install -r requirements.txt -r gui/backend/requirements.txt
+cd gui/backend
+uvicorn main:app --reload
+```
+
+Open `http://127.0.0.1:8000`. Pick a device, click through Intent →
+Orchestration → Translation → Transport, and use Deploy the same way you'd
+run `deploy.py --transport netconf` (or `gnmi`) — it calls the same
+orchestrator code underneath. See [`gui/README.md`](../gui/README.md) for
+what each stage shows and a list of current limitations (credential wiring,
+a couple of framework-level gaps it deliberately doesn't paper over).
+
+## 8. Extending the framework
 
 To add support for a new feature (for example, BGP) or a new transport
 (for example, RESTCONF), see the "Extension Guide" section of

@@ -16,6 +16,10 @@ It progresses through three stages, each in its own directory:
    implements that split for real, across NETCONF and gNMI, for both
    vendors.
 
+An optional **`gui/`** — a local web app for visualizing and driving
+`framework/` from a browser — sits on top of stage 3; see
+[`gui/README.md`](gui/README.md).
+
 See [`Introduction.md`](Introduction.md) for the motivation and architecture
 in more depth.
 
@@ -35,6 +39,7 @@ in more depth.
 ├── scripts/                      # Stage 1: discovery scripts (NETCONF + gNMI)
 ├── prototype/                    # Stage 2: minimal intent/orchestrator/translator sketch
 ├── framework/                    # Stage 3: the full provisioning tool
+├── gui/                           # Optional: local web app for the framework (see gui/README.md)
 ├── requirements.txt
 └── LICENSE
 ```
@@ -62,6 +67,15 @@ cd topology && sudo containerlab deploy -t yang.clab.yml
 
 Then work through `scripts/` (discovery), `prototype/` (read-only sketch),
 and `framework/` (the full tool) in that order.
+
+## GUI (optional)
+
+Once `framework/` is set up, `gui/` gives you a local web app for the same
+pipeline — visualize intent → orchestration → translation → transport per
+device, edit intents in a form or raw YAML, and trigger deployment from a
+browser instead of the CLI. It's a second consumer of `framework/`'s own
+code, not a separate implementation. See [`gui/README.md`](gui/README.md)
+for setup and a frank list of what's implemented vs. not yet.
 
 ## A note on credentials
 
