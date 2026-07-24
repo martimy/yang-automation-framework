@@ -8,13 +8,13 @@ mgmt:
 topology:
   kinds:
     arista_ceos:
-      image: ${CEOS_IMAGE:-ceos:image}
+      image: ceos:v4.36
       # Set the MGMT VRF globally for all 'ceos' nodes
       env:
         CLAB_MGMT_VRF: MGMT
 
     nokia_srlinux:
-      image: ghcr.io/nokia/srlinux
+      image: ghcr.io/nokia/srlinux:latest #26.7.1.-554-amd64
       type: ixr-d1
   nodes:
     # Arista
@@ -34,7 +34,7 @@ topology:
 
   links:
     # Router connections
-    - endpoints: ["ceos-01:eth1", "srl-01:e1-1"]
-    - endpoints: ["ceos-01:eth2", "srl-02:e1-1"]
-    - endpoints: ["srl-01:e1-2", "srl-02:e1-2"]
+    - endpoints: ["ceos-01:eth1", "srl-01:ethernet-1/1"]
+    - endpoints: ["ceos-01:eth2", "srl-02:ethernet-1/1"]
+    - endpoints: ["srl-01:ethernet-1/2", "srl-02:ethernet-1/2"]
 
