@@ -1,0 +1,34 @@
+# Which devices exist, and how to authenticate to them.
+#
+# Passwords are never stored here -- only the name of the environment
+# variable to read them from (see .env.example). Resolution order per
+# field (username / password_env): a per-host override under `hosts:`,
+# falling back to that device's vendor defaults under `vendors:`. There
+# is no further fallback -- a device with nothing resolvable fails
+# loudly rather than silently trying a guessed credential. See
+# credentials.py.
+#
+# devices.yml is a separate file and doesn't need to list every device
+# here -- only the ones that currently have configured intents. This
+# file is the complete list of what exists; devices.yml is only what's
+# been configured so far.
+
+vendors:
+  ceos:
+    username: admin
+    password_env: CEOS_PASSWORD
+  srlinux:
+    username: admin
+    password_env: SRL_PASSWORD
+
+hosts:
+  ceos-01:
+    vendor: ceos
+  srl-01:
+    vendor: srlinux
+  srl-02:
+    vendor: srlinux
+    # Example of a per-host override, for when a device's credentials
+    # diverge from its vendor's defaults above:
+    # username: labadmin
+    # password_env: SRL_02_PASSWORD

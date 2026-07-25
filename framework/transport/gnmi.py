@@ -4,35 +4,54 @@ gNMI Transport Layer
 
 from pygnmi.client import gNMIclient
 
-devices = {
-    "srl-01": {
-        "target": ("srl-01", 57400),
-        "username": "admin",
-        "password": "NokiaSrl1!",
-        "skip_verify": True,
-    },
-    "srl-02": {
-        "target": ("srl-01", 57400),
-        "username": "admin",
-        "password": "NokiaSrl1!",
-        "skip_verify": True,
-    },
-    "ceos-01": {
-        "target": ("ceos-01", 6030),
-        "username": "admin",
-        "password": "admin",
-        "insecure": True,
-    },
-}
+# gNMI's default port genuinely varies by vendor (unlike NETCONF's, which is
+# 830 for both) -- this is a transport-layer detail, not a credentials one,
+# so it stays here rather than in inventory.yml. Callers not using one of
+# these vendors must pass port explicitly.
+DEFAULT_PORTS = {"srlinux": 57400, "ceos": 6030}
+
+# TLS handling also varies by vendor, and the two modes are NOT
+# interchangeable: "insecure" connects with no TLS at all (plaintext gRPC),
+# while "skip_verify" connects WITH TLS but skips verifying the (self-signed)
+# certificate. SR Linux's gNMI server requires TLS -- it needs skip_verify,
+# the same way `gnmic ... --skip-verify` does. cEOS accepts a plaintext
+# channel. Passing the wrong mode doesn't fail cleanly: the client just hangs
+# until grpc's channel-ready timeout fires, which looks like a network
+# problem rather than a config mismatch.
+DEFAULT_TLS_MODE = {"srlinux": "skip_verify", "ceos": "insecure"}
 
 
 class GnmiTransport:
-    def __init__(self, host):
-        # gNMI uses a different default port
-        # The 'insecure=True' flag is used for lab environments to bypass TLS certificate verification.
-        # For production, you should use secure connections with valid certificates.
+    def __init__(self, host, username, password, vendor=None, port=None, tls_mode=None):
+        # gNMI uses a different default port per vendor; see DEFAULT_PORTS.
+        if port is None:
+            if vendor not in DEFAULT_PORTS:
+                raise ValueError(
+                    f"No default gNMI port known for vendor '{vendor}' -- pass port explicitly."
+                )
+            port = DEFAULT_PORTS[vendor]
 
-        self.client = gNMIclient(**devices[host])
+        # And a different default TLS mode; see DEFAULT_TLS_MODE.
+        if tls_mode is None:
+            if vendor not in DEFAULT_TLS_MODE:
+                raise ValueError(
+                    f"No default gNMI TLS mode known for vendor '{vendor}' -- "
+                    f"pass tls_mode explicitly ('insecure' or 'skip_verify')."
+                )
+            tls_mode = DEFAULT_TLS_MODE[vendor]
+
+        client_kwargs = {"target": (host, port), "username": username, "password": password}
+        if tls_mode == "insecure":
+            # No TLS at all -- lab-only; never use against a real network.
+            client_kwargs["insecure"] = True
+        elif tls_mode == "skip_verify":
+            # TLS, but skip certificate verification -- fine for a
+            # self-signed lab cert; still not what you'd want in production.
+            client_kwargs["skip_verify"] = True
+        else:
+            raise ValueError(f"Unknown tls_mode '{tls_mode}', expected 'insecure' or 'skip_verify'")
+
+        self.client = gNMIclient(**client_kwargs)
 
     def get_config(self, path: list) -> dict:
         """

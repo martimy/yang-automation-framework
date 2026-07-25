@@ -3,29 +3,8 @@ from ncclient import manager
 # import pprint
 import xml.dom.minidom
 
-devices = {
-    "srl-01": {
-        "host": "srl-01",
-        "port": 830,
-        "username": "admin",
-        "password": "NokiaSrl1!",
-        "hostkey_verify": False,
-    },
-    "srl-02": {
-        "host": "srl-02",
-        "port": 830,
-        "username": "admin",
-        "password": "NokiaSrl1!",
-        "hostkey_verify": False,
-    },
-    "ceos-01": {
-        "host": "ceos-01",
-        "port": 830,
-        "username": "admin",
-        "password": "admin",
-        "hostkey_verify": False,
-    },
-}
+NETCONF_PORT = 830
+
 
 def pretty_print_xml(xml_string):
     # Parse the XML string
@@ -65,8 +44,14 @@ ONE_INTERFACE = """
 
 
 class NetconfTransport:
-    def __init__(self, host):
-        self.params = devices[host]
+    def __init__(self, host, username, password, port=NETCONF_PORT, hostkey_verify=False):
+        self.params = {
+            "host": host,
+            "port": port,
+            "username": username,
+            "password": password,
+            "hostkey_verify": hostkey_verify,
+        }
 
 
     def get_config(self, filter_xml: str) -> dict:

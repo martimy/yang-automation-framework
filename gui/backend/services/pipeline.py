@@ -21,15 +21,16 @@ consistent with what deploy.py already does.
 import contextlib
 import dataclasses
 import io
-import os
-from pathlib import Path
 from typing import Any
 
 import yaml
-from dotenv import load_dotenv
 
 import framework_bridge  # noqa: F401  (side effect: sys.path)
-from framework_bridge import DEVICES_YML, FRAMEWORK_DIR
+from framework_bridge import DEVICES_YML
+
+import credentials
+from credentials import CredentialsError
+from scope import filter_intents
 
 from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
@@ -222,16 +223,37 @@ def dehydrate_device(device: dict) -> dict:
 
 # ---------------------------------------------------------------------------
 # Load / save
+#
+# devices.yml is now sparse: it only has entries for hosts that have some
+# configured intent, not every device (that list lives in inventory.yml,
+# via credentials.all_hosts()). host is the join key between the two files.
 # ---------------------------------------------------------------------------
 
 def load_raw_devices() -> list[dict]:
+    """Raw (un-hydrated) devices.yml entries -- host + intents only, no
+    vendor/username (that's inventory.yml's job now)."""
     with open(DEVICES_YML, "r") as f:
         return yaml.safe_load(f) or []
 
 
 def load_devices() -> list[dict]:
-    """List of devices with intents hydrated into dataclasses."""
-    return [hydrate_device(d) for d in load_raw_devices()]
+    """Every device in inventory.yml, each with intents hydrated into
+    dataclasses -- empty ({}) for a device inventory.yml knows about but
+    devices.yml doesn't have an entry for yet."""
+    intents_by_host = {d["host"]: d.get("intents", {}) for d in load_raw_devices()}
+    devices = []
+    for host in credentials.all_hosts():
+        raw_intents = intents_by_host.get(host, {})
+        try:
+            hydrated_intents = hydrate_intents(raw_intents)
+        except (TypeError, KeyError) as exc:
+            raise ValidationError(f"{host}: {exc}") from exc
+        devices.append({
+            "host": host,
+            "vendor": credentials.vendor_for_host(host),
+            "intents": hydrated_intents,
+        })
+    return devices
 
 
 def load_device(host: str) -> dict:
@@ -244,21 +266,27 @@ def load_device(host: str) -> dict:
 def save_devices(devices: list[dict]) -> None:
     """
     devices: list of dicts, intents already hydrated into dataclasses
-    (i.e. what load_devices() returns, after edits).
+    (i.e. what load_devices() returns, after edits). Only host + intents
+    are written to devices.yml -- vendor comes from inventory.yml and was
+    never devices.yml's to store.
     """
-    raw = [dehydrate_device(d) for d in devices]
+    raw = [{"host": d["host"], "intents": dehydrate_intents(d.get("intents", {}))} for d in devices]
     with open(DEVICES_YML, "w") as f:
         yaml.safe_dump(raw, f, sort_keys=False)
 
 
-def save_device(host: str, updated_device: dict) -> None:
-    devices = load_devices()
-    for i, device in enumerate(devices):
-        if device["host"] == host:
-            devices[i] = updated_device
-            break
-    else:
+def save_device(host: str, updated_intents: dict) -> None:
+    """updated_intents: hydrated intents (dataclasses) for `host`. Creates a
+    new devices.yml entry if this host has no intents configured yet --
+    devices.yml is sparse by design, so "not there yet" isn't an error the
+    way it would be for inventory.yml."""
+    if host not in credentials.all_hosts():
         raise KeyError(host)
+    devices = load_devices()
+    for device in devices:
+        if device["host"] == host:
+            device["intents"] = updated_intents
+            break
     save_devices(devices)
 
 
@@ -335,15 +363,18 @@ def _preview_entry(category: str, intent_obj: Any, payload: Any) -> dict:
 # Deployment -- the real thing: Orchestration -> Translation -> Transport.
 # ---------------------------------------------------------------------------
 
-def run_deployment(host: str, transport_kind: str = "netconf") -> dict:
+def run_deployment(host: str, transport_kind: str = "netconf", categories: set[str] | None = None) -> dict:
+    """
+    categories: optional set of intent categories to provision this run
+    (e.g. {"snmp"}) -- lets the GUI push one new piece of configuration
+    without re-pushing everything else already configured for the device.
+    None (the default) provisions everything, matching prior behavior.
+    """
     if transport_kind not in TRANSPORT_MAP:
         raise ValueError(f"Unknown transport '{transport_kind}', expected one of {list(TRANSPORT_MAP)}")
 
     device = load_device(host)
     vendor = device["vendor"]
-
-    load_dotenv(FRAMEWORK_DIR / ".env")
-
     TransportClass = TRANSPORT_MAP[transport_kind]
     payload_format = PAYLOAD_FORMAT_MAP[transport_kind]
 
@@ -351,13 +382,30 @@ def run_deployment(host: str, transport_kind: str = "netconf") -> dict:
     result = {"host": host, "vendor": vendor, "transport": transport_kind, "success": False}
 
     try:
+        conn = credentials.resolve_credentials(host)
+    except CredentialsError as exc:
+        # Same treatment as any other deploy-time failure: a clean result
+        # for the caller, not a stack trace -- but distinct enough (no log,
+        # no vague "connection failed") that a missing .env entry doesn't
+        # look like a device/network problem.
+        result["error"] = str(exc)
+        return result
+
+    scoped_intents = filter_intents(device.get("intents", {}), categories)
+
+    try:
         with contextlib.redirect_stdout(log):
             print(f"--- Using {transport_kind.upper()} transport ---")
-            transport = TransportClass(host=host)
+            if transport_kind == "netconf":
+                transport = TransportClass(host=host, username=conn.username, password=conn.password)
+            else:
+                transport = TransportClass(
+                    host=host, username=conn.username, password=conn.password, vendor=vendor
+                )
             orchestrator = ORCHESTRATORS[vendor](transport, TRANSLATORS[vendor])
             orchestrator.bootstrap()
             print("  \u2713 Bootstrap complete")
-            orchestrator.provision(device.get("intents", {}), payload_format=payload_format)
+            orchestrator.provision(scoped_intents, payload_format=payload_format)
         result["success"] = True
     except Exception as exc:  # noqa: BLE001 -- deliberately broad: this is a
         # user-triggered deploy against a live device; any failure (auth,
