@@ -159,13 +159,24 @@ specifics on what is and isn't runnable there.
    cp .env.example .env
    ```
 
-   The defaults match the lab's default passwords out of the box. See the
-   "A note on credentials" section in the top-level `README.md` for a caveat
-   about how these values are (and aren't) actually used today.
+   The defaults match the lab's default passwords out of the box. `.env`
+   only ever holds the password itself — which device uses which one is
+   declared in `inventory.yml` (see step 2), not here. See the "A note on
+   credentials" section in the top-level `README.md` for how the two fit
+   together.
 
-2. Review `devices.yml` — this is where the device inventory and the
-   intended configuration (the "intents") for each device are declared.
-   Adjust it if your lab's device names or addresses differ from the
+2. Review two files:
+
+   - **`inventory.yml`** — which devices exist, and how to connect to them
+     (username, and which `.env` variable holds the password). Per-vendor
+     defaults with optional per-host overrides. This is the actual device
+     inventory now — `deploy.py` refuses to run for a host that isn't
+     listed here, with no hardcoded fallback.
+   - **`devices.yml`** — purely the intended configuration (the "intents")
+     for each device, keyed by host. It no longer carries vendor or
+     credentials — those live in `inventory.yml`, joined by hostname.
+
+   Adjust both if your lab's device names or addresses differ from the
    defaults in `topology/yang.clab.yml`.
 
 3. Run the provisioning tool, choosing a transport:
@@ -180,11 +191,29 @@ specifics on what is and isn't runnable there.
    python3 deploy.py --transport gnmi
    ```
 
-   This reads `devices.yml`, builds the intent objects, hands them to the
-   vendor-appropriate orchestrator (which sequences operations correctly —
-   see `framework-design-notes.md` for why SR Linux and cEOS need different
-   sequences), translates them into vendor-specific payloads, and pushes
-   them over the chosen transport.
+   By default this deploys every device in `devices.yml`, pushing
+   everything configured for each one. Two flags narrow that down —
+   useful once you're iterating rather than doing a first full deploy:
+
+   ```bash
+   python3 deploy.py --transport netconf --host srl-01
+   python3 deploy.py --transport netconf --host srl-01 --categories ospf,ntp
+   ```
+
+   `--host` targets a single device; `--categories` (comma-separated:
+   `interfaces`, `network_instances`, `ospf`, `ntp`, `snmp`) limits the
+   deploy to only those parts of that device's configured intents — so
+   adding one new feature doesn't force re-pushing everything else already
+   configured for that device. Omit either flag for the old
+   everything-everywhere behavior.
+
+   Under the hood this resolves credentials for each targeted host from
+   `inventory.yml`/`.env`, builds the intent objects (optionally filtered
+   by `--categories`), hands them to the vendor-appropriate orchestrator
+   (which sequences operations correctly — see `framework-design-notes.md`
+   for why SR Linux and cEOS need different sequences), translates them
+   into vendor-specific payloads, and pushes them over the chosen
+   transport.
 
 4. Verify the result using the same discovery techniques from Stage 1 — for
    example, re-run `get_configuration.py` or `get_config_gnmi.py` (adjusted
@@ -196,7 +225,8 @@ specifics on what is and isn't runnable there.
 `gui/` wraps the same `framework/` code from Stage 3 in a local web app —
 useful for demoing the pipeline or for editing intents without hand-writing
 YAML. It doesn't replace `deploy.py`; it's a second way to drive the same
-provisioning logic.
+provisioning logic, including the same category-scoped deploys described
+above (the Transport stage has a checkbox list for it).
 
 ```bash
 pip install -r requirements.txt -r gui/backend/requirements.txt
@@ -207,9 +237,9 @@ uvicorn main:app --reload
 Open `http://127.0.0.1:8000`. Pick a device, click through Intent →
 Orchestration → Translation → Transport, and use Deploy the same way you'd
 run `deploy.py --transport netconf` (or `gnmi`) — it calls the same
-orchestrator code underneath. See [`gui/README.md`](../gui/README.md) for
-what each stage shows and a list of current limitations (credential wiring,
-a couple of framework-level gaps it deliberately doesn't paper over).
+orchestrator code underneath, credentials and all. See
+[`gui/README.md`](../gui/README.md) for what each stage shows and a list of
+current limitations.
 
 ## 8. Extending the framework
 

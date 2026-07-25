@@ -85,14 +85,20 @@ well-known vendor/containerlab defaults for local sandboxes, not secrets.
 Copy it to `.env` (already gitignored) rather than committing real
 credentials if you change them.
 
-**Known inconsistency:** `deploy.py` loads these values from `.env` into a
-`passwords` dict, but `transport/netconf.py` and `transport/gnmi.py` don't
-actually read it — they hardcode the same lab-default credentials directly
-in their own `devices` mappings. So today, changing `.env` alone won't
-change what credentials are used; you'd also need to edit those two files
-(or wire `passwords` through to them). The standalone scripts in `scripts/`
-and `prototype/` hardcode the same defaults too, for simplicity. Don't reuse
-any of these default credentials outside of this isolated lab.
+`.env` only ever holds the password itself, by environment variable name.
+Everything else about how to connect to a device — its vendor, its
+username, and which `.env` variable holds its password — is declared in
+`framework/inventory.yml`, with per-vendor defaults and optional per-host
+overrides. `credentials.py` resolves the two together and fails loudly
+(a clear, specific error) if a host isn't listed in `inventory.yml` or its
+password variable isn't set — there's no hardcoded fallback, by design.
+`deploy.py` and the GUI both go through this same resolution, so there's
+one place this logic lives, not several.
+
+The standalone scripts in `scripts/` and `prototype/` hardcode the lab
+defaults directly, for simplicity — they predate `inventory.yml` and are
+meant to stay minimal illustrations, not full framework consumers. Don't
+reuse any of these default credentials outside of this isolated lab.
 
 ## License
 

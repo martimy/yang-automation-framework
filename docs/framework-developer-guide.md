@@ -34,8 +34,11 @@ The system is built on a four-layer architecture that separates the *intent* (wh
 framework/
 ├── deploy.py            # Application entry point; drives the provisioning loop.
 ├── registry.py          # Glue logic; maps vendors to their specific components.
-├── devices.yml          # Inventory and intent definitions (The "Source of Truth").
-├── .env.example         # Template for CEOS_PASSWORD / SRL_PASSWORD — copy to .env.
+├── credentials.py        # Resolves each host's username/password from inventory.yml + .env; fails loudly, no hardcoded fallback.
+├── scope.py              # filter_intents() -- lets a deploy target only some intent categories (--categories).
+├── inventory.yml         # Device inventory: which hosts exist, their vendor, and how to connect (The "Source of Truth" for identity/credentials).
+├── devices.yml           # Intent definitions only, keyed by host (The "Source of Truth" for desired configuration).
+├── .env.example          # Template for CEOS_PASSWORD / SRL_PASSWORD — copy to .env. inventory.yml says which variable each host uses.
 ├── intent/              # Vendor-neutral data models for OSPF, NTP, Interfaces, etc.
 ├── orchestration/       # Vendor-specific workflow logic (Ceos vs. SR-Linux).
 ├── translation/         # Jinja2-based payload generation logic.
@@ -49,14 +52,22 @@ framework/
 
 ## Key Workflow
 
-1.  **Initialization**: `deploy.py` loads credentials from `.env` and device intents from `devices.yml`.
+1.  **Initialization**: `deploy.py` reads `devices.yml` for intents and, for
+    each targeted host, resolves credentials via `credentials.py` (vendor
+    defaults + host overrides from `inventory.yml`, password from `.env`).
+    `--host` and `--categories` (via `scope.py`'s `filter_intents()`)
+    optionally narrow this to one device and/or a subset of its intents.
 2.  **Registration**: `registry.py` provides the orchestrator and translators required for the specific vendor (e.g., `ceos` or `srlinux`).
 3.  **Bootstrap**: The orchestrator performs one-time prerequisites (e.g., enabling `ip routing` on cEOS).
 4.  **Sequential Provisioning**:
-    -   `deploy.py` passes intents to the orchestrator.
+    -   `deploy.py` passes (optionally filtered) intents to the orchestrator.
     -   The orchestrator uses translators to generate the payload.
     -   The orchestrator pushes the payload via the transport layer.
-5.  **Safe Delivery**: The `NetconfTransport` utilizes the **Candidate → Validate → Confirmed-Commit** sequence to ensure atomic and safe configuration changes.
+5.  **Safe Delivery**: `NetconfTransport` uses the **Candidate → Validate →
+    Confirmed-Commit** sequence for atomic, safe configuration changes, and
+    discards the candidate datastore if any step fails — otherwise a failed
+    edit (e.g. a non-existent interface) would silently poison every
+    subsequent deploy to that device, NETCONF or not.
 
 ---
 
@@ -78,9 +89,12 @@ framework/
 `gui/` is a second consumer of this framework — a local web app, not a
 parallel implementation. Its backend (`gui/backend/`) puts `framework/` on
 `sys.path` (`gui/backend/framework_bridge.py`) and imports `intent.*`,
-`orchestration.*`, `translation.*`, `transport.*`, and `registry` exactly
-the way `deploy.py` does, so there's one implementation of what an intent
-means, not two.
+`orchestration.*`, `translation.*`, `transport.*`, `registry`, `credentials`,
+and `scope` exactly the way `deploy.py` does, so there's one implementation
+of what an intent means (and one implementation of credential resolution
+and deployment scoping), not two. The GUI's Deploy button resolves
+credentials via `credentials.py` and supports the same `--categories`-style
+scoping as `deploy.py`, through a checkbox list on the Transport stage.
 
 Two things worth knowing if you're extending the framework and want the GUI
 to stay accurate rather than silently stale:
