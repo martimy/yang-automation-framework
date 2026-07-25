@@ -107,6 +107,24 @@ class NetconfTransport:
 
             except Exception as e:
                 print(str(e))
+                # edit_config, validate, and commit all write into the
+                # candidate datastore before commit finalizes it. If any of
+                # them fails partway, whatever was already loaded into
+                # candidate stays there -- it's not session-scoped, so it
+                # silently poisons every subsequent push_config() call (a
+                # brand-new connection still sees the same stale candidate)
+                # until something discards it. Without this, one student
+                # trying to configure a non-existent interface breaks every
+                # deploy after it, including unrelated ones like OSPF.
+                if has_candidate:
+                    try:
+                        m.discard_changes()
+                        print("Candidate datastore discarded after failed commit")
+                    except Exception as discard_error:
+                        # Don't let a failed discard hide the original error --
+                        # this just means the candidate may still be dirty and
+                        # the next push_config() attempt will likely fail too.
+                        print(f"Warning: failed to discard candidate changes: {discard_error}")
                 return False
         return True
 

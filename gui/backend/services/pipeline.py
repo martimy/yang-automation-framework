@@ -35,6 +35,7 @@ from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent, OspfAreaIntent, OspfInterfaceIntent
 from intent.ntp import NtpIntent, NtpServerIntent
+from intent.snmp import SnmpIntent
 
 from registry import TRANSLATORS, ORCHESTRATORS
 from transport.netconf import NetconfTransport
@@ -44,14 +45,20 @@ TRANSPORT_MAP = {"netconf": NetconfTransport, "gnmi": GnmiTransport}
 PAYLOAD_FORMAT_MAP = {"netconf": "xml", "gnmi": "json"}
 
 # The only top-level / protocols keys the framework's dataclasses actually
-# understand today. Anything else (e.g. a hand-added "protocols: {snmp: ...}"
+# understand today. Anything else (e.g. a hand-added "protocols: {radius: ...}"
 # block) has no dataclass, translator, or orchestrator wiring behind it --
 # hydrate_intents/dehydrate_intents preserve it verbatim through save/load
 # rather than silently discarding it, but nothing will ever translate or
 # deploy it. unrecognized_intent_keys() is how callers surface that as a
 # warning instead of letting it pass silently.
+#
+# "snmp" hydrates into SnmpIntent below even though no translator/registry
+# entry exists for it yet -- see intent/snmp.py and the GUI README's "If you
+# extend the framework" note. Without this, preview_translation()'s snmp loop
+# would hand a translator a raw dict instead of an SnmpIntent instance the
+# moment one gets registered.
 KNOWN_TOP_LEVEL_INTENT_KEYS = {"interfaces", "network_instances", "protocols"}
-KNOWN_PROTOCOL_KEYS = {"ospf", "ntp"}
+KNOWN_PROTOCOL_KEYS = {"ospf", "ntp", "snmp"}
 
 
 class ValidationError(Exception):
@@ -126,7 +133,14 @@ def hydrate_intents(raw_intents: dict) -> dict:
                 NtpIntent(servers=servers, enabled=ntp_data.get("enabled", True))
             ]
 
-        # Anything else under protocols (e.g. a hand-added "snmp" block) has
+        if "snmp" in protocols:
+            # List-shaped, like ospf -- a device can have more than one SNMP
+            # target (e.g. separate v2c and v3 configs).
+            new_intents["protocols"]["snmp"] = [
+                SnmpIntent(**snmp_data) for snmp_data in protocols["snmp"]
+            ]
+
+        # Anything else under protocols (e.g. a hand-added "radius" block) has
         # no dataclass/translator behind it -- pass it through untouched so
         # a save never silently discards it. See unrecognized_intent_keys().
         for key, value in protocols.items():
@@ -182,6 +196,9 @@ def dehydrate_intents(intents: dict) -> dict:
             # unwrap it back to the flat dict devices.yml expects.
             (ntp_intent,) = protocols["ntp"]
             raw["protocols"]["ntp"] = dataclasses.asdict(ntp_intent)
+
+        if "snmp" in protocols:
+            raw["protocols"]["snmp"] = [dataclasses.asdict(i) for i in protocols["snmp"]]
 
         # Pass through anything hydrate_intents preserved verbatim (plain
         # dicts/lists, not dataclasses -- nothing to asdict()).

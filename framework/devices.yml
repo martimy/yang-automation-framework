@@ -46,7 +46,7 @@
         enabled: true
 - host: srl-01
   vendor: srlinux
-  username: admin
+  username: null
   intents:
     interfaces:
     - name: ethernet-1/1
@@ -63,10 +63,6 @@
       description: To SRL-02
       network_instance: default
       subinterface: 0
-    network_instances:
-    - name: test3
-      type: L3
-      description: Test VRF
     protocols:
       ospf:
       - name: 100

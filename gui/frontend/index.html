@@ -304,10 +304,11 @@ createApp({
       return this.devices.find(d => d.host === this.selected.host) || null;
     },
     listCategories() {
-      // ospf and ntp both live under devices.yml's "protocols" key, but only
-      // ntp is a single instance -- ospf is a list, same as interfaces and
-      // network_instances -- so it's grouped with the other list categories.
-      return ['interfaces', 'network_instances', 'ospf'].filter(c => this.vendorCategories.includes(c));
+      // ospf, ntp, and snmp all live under devices.yml's "protocols" key,
+      // but only ntp is a single instance -- ospf and snmp are lists (a
+      // device can have more than one SNMP target), same as interfaces and
+      // network_instances -- so they're grouped with the other list categories.
+      return ['interfaces', 'network_instances', 'ospf', 'snmp'].filter(c => this.vendorCategories.includes(c));
     },
   },
   methods: {
@@ -375,17 +376,17 @@ createApp({
       }
     },
     // API shape (matches devices.yml): {interfaces:[], network_instances:[], protocols:{ospf:[], ntp:{...}}}
-    // Form shape (flat, easier to template against): {interfaces:[], network_instances:[], ospf:[], ntp:{...}|null}
+    // Form shape (flat, easier to template against): {interfaces:[], network_instances:[], ospf:[], ntp:{...}|null, snmp:[]}
     //
-    // The form only has fields for interfaces/network_instances/ospf/ntp --
-    // anything else (e.g. a "protocols.snmp" block added via the Raw YAML
+    // The form only has fields for interfaces/network_instances/ospf/ntp/snmp --
+    // anything else (e.g. a "protocols.radius" block added via the Raw YAML
     // tab) has no form fields to show, but switching to Form and hitting
     // Save must not silently erase it. _passthroughTop/_passthroughProtocols
     // carry that unrecognized content through untouched.
     apiIntentsToForm(apiIntents) {
       const protocols = apiIntents.protocols || {};
       const knownTop = new Set(['interfaces', 'network_instances', 'protocols']);
-      const knownProtocols = new Set(['ospf', 'ntp']);
+      const knownProtocols = new Set(['ospf', 'ntp', 'snmp']);
       const passthroughTop = {};
       for (const k in apiIntents) if (!knownTop.has(k)) passthroughTop[k] = apiIntents[k];
       const passthroughProtocols = {};
@@ -395,17 +396,25 @@ createApp({
         network_instances: apiIntents.network_instances || [],
         ospf: protocols.ospf || [],
         ntp: protocols.ntp || null,
+        snmp: protocols.snmp || [],
         _passthroughTop: passthroughTop,
         _passthroughProtocols: passthroughProtocols,
       };
     },
     formToApiIntents(form) {
+      // Write back a category if the vendor supports it OR it already has
+      // data -- the second half matters for categories like snmp that have
+      // a schema/hydration path but no vendor support yet (see
+      // supported_intent_categories() in schema.py): the vendor gate alone
+      // would silently drop pre-existing data on save instead of preserving
+      // it inert, which is exactly the bug this pattern is meant to avoid.
       const apiIntents = { ...(form._passthroughTop || {}) };
-      if (this.vendorCategories.includes('interfaces')) apiIntents.interfaces = form.interfaces;
-      if (this.vendorCategories.includes('network_instances')) apiIntents.network_instances = form.network_instances;
+      if (this.vendorCategories.includes('interfaces') || form.interfaces.length) apiIntents.interfaces = form.interfaces;
+      if (this.vendorCategories.includes('network_instances') || form.network_instances.length) apiIntents.network_instances = form.network_instances;
       const protocols = { ...(form._passthroughProtocols || {}) };
-      if (this.vendorCategories.includes('ospf')) protocols.ospf = form.ospf;
-      if (this.vendorCategories.includes('ntp') && form.ntp) protocols.ntp = form.ntp;
+      if (this.vendorCategories.includes('ospf') || form.ospf.length) protocols.ospf = form.ospf;
+      if (form.ntp) protocols.ntp = form.ntp;
+      if (this.vendorCategories.includes('snmp') || form.snmp.length) protocols.snmp = form.snmp;
       apiIntents.protocols = protocols;
       return apiIntents;
     },

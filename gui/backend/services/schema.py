@@ -27,10 +27,10 @@ from intent.snmp import SnmpIntent
 from registry import TRANSLATORS
 
 # Intent dataclasses actually wired into deploy.py's hydration path today.
-# (intent/ni_interface.py and intent/routing.py exist in the framework but
-# are dead code -- ni_interface.py imports a module, intent.srlinux.interface,
-# that doesn't exist in this repo, so it can't even be imported. Left out
-# on purpose; see the README note in this GUI's own docs.)
+# (intent/routing.py exists in the framework but is dead code -- unregistered
+# in registry.py and unreferenced by any orchestrator. Left out on purpose;
+# see the README note in this GUI's own docs. intent/ni_interface.py, which
+# used to be in the same boat, has since been removed from the framework.)
 INTENT_CLASSES: dict[str, type] = {
     "interfaces": InterfaceIntent,
     "network_instances": NetworkInstanceIntent,
@@ -113,8 +113,14 @@ def full_intent_schema() -> dict:
 def supported_intent_categories(vendor: str) -> list[str]:
     """
     Which top-level intent categories (interfaces / network_instances /
-    ospf / ntp) make sense to show for this vendor, derived from which
-    translators registry.py actually registers for it.
+    ospf / ntp / snmp) make sense to show for this vendor, derived from
+    which translators registry.py actually registers for it.
+
+    Note: "snmp" won't appear here for any vendor yet -- intent/snmp.py
+    exists and hydrates cleanly (see pipeline.py), but no vendor has an
+    "snmp" translator registered in registry.py yet. That's the correct
+    behavior: this function reflects what's actually deployable, not just
+    what has a dataclass.
     """
     translator_keys = set(TRANSLATORS.get(vendor, {}).keys())
     supported = []
@@ -126,6 +132,8 @@ def supported_intent_categories(vendor: str) -> list[str]:
         supported.append("ospf")
     if "ntp" in translator_keys:
         supported.append("ntp")
+    if "snmp" in translator_keys:
+        supported.append("snmp")
     return supported
 
 
