@@ -110,6 +110,14 @@ means when you follow the checklist in `docs/framework-developer-guide.md`'s
   block mirroring `ntp`'s (or `snmp`'s); a list-shaped one needs adding to
   `listCategories` instead. Neither happens automatically.
 
+Once you've made these changes, run `python3 gui/backend/check_consistency.py`
+from the repo root. It re-derives what `registry.py`/`scope.py` imply the
+GUI should look like and compares that against what `pipeline.py`/
+`schema.py` actually do — the exact mismatch SNMP had, below, would have
+been caught by this in seconds instead of surfacing as a silent no-op
+deploy. Exits `0`/`OK` if everything agrees, `1` with a specific
+explanation of what to fix if not.
+
 **Changelog — SNMP shape mismatch (fixed):** the first pass at SNMP only
 added `intent/snmp.py` and registered it in `schema.py`'s `INTENT_CLASSES`.
 `pipeline.py` hydrated/dehydrated it as a *list nested under `protocols`*,

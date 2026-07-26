@@ -248,6 +248,27 @@ To add support for a new feature (for example, BGP) or a new transport
 [`framework-developer-guide.md`](framework-developer-guide.md), which lays
 out exactly which files to touch and in what order.
 
+Two tools make this easier:
+
+- `framework/new_feature.py` scaffolds the framework-side files (the
+  intent dataclass, and a translator + templates per vendor) and prints
+  ready-to-paste snippets for the handful of existing files that need a
+  small edit:
+
+  ```bash
+  python3 framework/new_feature.py bgp --location top-level --cardinality single
+  ```
+
+- `gui/backend/check_consistency.py` checks that the GUI hasn't drifted
+  from what `registry.py`/`scope.py` declare — run it after wiring up the
+  GUI side of a new feature:
+
+  ```bash
+  python3 gui/backend/check_consistency.py
+  ```
+
+Both are documented in more detail in `framework-developer-guide.md`.
+
 ## Troubleshooting
 
 - **A script can't connect to a device** — confirm the lab is fully up with

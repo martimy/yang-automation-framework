@@ -138,6 +138,50 @@ import anything from `gui/` — but skipping them means the GUI's
 preview/form/save silently diverges from what the CLI actually does, the
 way SNMP's did until it was caught and fixed.
 
+### Scaffolding steps 1–9: `framework/new_feature.py`
+
+Steps 1–3 above (the intent dataclass, and a translator + two template
+files per vendor) are pure boilerplate — this script generates them for
+you, matching the exact conventions of the existing intent/translator
+files:
+
+```bash
+python3 framework/new_feature.py bgp --location top-level --cardinality single
+python3 framework/new_feature.py static_route --location protocols --cardinality list --vendors srlinux
+```
+
+- `--location`: `top-level` (a sibling of `protocols` in `devices.yml`,
+  like `snmp`) or `protocols` (nested under it, like `ospf`/`ntp`) — this
+  is the first decision from above.
+- `--cardinality`: `single` (one per device, like `snmp`/`ntp`) or `list`
+  (a device can have more than one, like `ospf`) — the second decision.
+- `--vendors`: comma-separated, defaults to `ceos,srlinux`.
+
+It only **creates** new files (steps 1–3) — it refuses to run again over
+files that already exist rather than overwrite them. For steps 4–9
+(`registry.py`, `orchestration/base.py`, `orchestration/<vendor>.py`,
+`scope.py`, `deploy.py`, and an example `devices.yml` block), which are
+existing files with real content, it doesn't edit anything automatically —
+it prints the exact snippet to paste into each one, already filled in with
+the right names and shape for the `--location`/`--cardinality` you chose.
+Steps 10–12 (the GUI) still need to be done by hand, following the
+checklist above.
+
+### Verifying steps 10–12 didn't drift: `gui/backend/check_consistency.py`
+
+Once you've made the GUI-side changes, run:
+
+```bash
+python3 gui/backend/check_consistency.py
+```
+
+It checks that `scope.py`, `registry.py`, and the GUI's `pipeline.py`/
+`schema.py` all agree on which categories exist and how each is shaped —
+the exact class of mismatch SNMP had. Exits `0` with `OK` if everything
+agrees, or `1` with a specific explanation of which files disagree and
+what to fix if not. Cheap enough to run after every feature; nothing to
+configure.
+
 -   **To add a new Transport**:
     1.  Implement a new class in `transport/` (e.g., `RestconfTransport`).
     2.  Update the transport map in `deploy.py`.
