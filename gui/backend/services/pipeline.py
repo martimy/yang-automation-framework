@@ -21,6 +21,8 @@ consistent with what deploy.py already does.
 import contextlib
 import dataclasses
 import io
+import os
+import tempfile
 from typing import Any
 
 import yaml
@@ -53,13 +55,14 @@ PAYLOAD_FORMAT_MAP = {"netconf": "xml", "gnmi": "json"}
 # deploy it. unrecognized_intent_keys() is how callers surface that as a
 # warning instead of letting it pass silently.
 #
-# "snmp" hydrates into SnmpIntent below even though no translator/registry
-# entry exists for it yet -- see intent/snmp.py and the GUI README's "If you
-# extend the framework" note. Without this, preview_translation()'s snmp loop
-# would hand a translator a raw dict instead of an SnmpIntent instance the
-# moment one gets registered.
-KNOWN_TOP_LEVEL_INTENT_KEYS = {"interfaces", "network_instances", "protocols"}
-KNOWN_PROTOCOL_KEYS = {"ospf", "ntp", "snmp"}
+# "snmp" is a top-level key in devices.yml, a sibling of "protocols" --
+# not a routing protocol, so it doesn't live under "protocols" the way ospf
+# and ntp do (see framework/scope.py and framework/deploy.py, which agree on
+# this). It's a single instance per device (like ntp), not a list (unlike
+# ospf). Keep this in sync with deploy.py's hydrate_intents() if that shape
+# ever changes.
+KNOWN_TOP_LEVEL_INTENT_KEYS = {"interfaces", "network_instances", "snmp", "protocols"}
+KNOWN_PROTOCOL_KEYS = {"ospf", "ntp"}
 
 
 class ValidationError(Exception):
@@ -93,6 +96,9 @@ def hydrate_intents(raw_intents: dict) -> dict:
         new_intents["network_instances"] = [
             NetworkInstanceIntent(**data) for data in raw_intents["network_instances"]
         ]
+
+    if "snmp" in raw_intents:
+        new_intents["snmp"] = SnmpIntent(**raw_intents["snmp"])
 
     if "protocols" in raw_intents:
         new_intents["protocols"] = {}
@@ -132,13 +138,6 @@ def hydrate_intents(raw_intents: dict) -> dict:
             ]
             new_intents["protocols"]["ntp"] = [
                 NtpIntent(servers=servers, enabled=ntp_data.get("enabled", True))
-            ]
-
-        if "snmp" in protocols:
-            # List-shaped, like ospf -- a device can have more than one SNMP
-            # target (e.g. separate v2c and v3 configs).
-            new_intents["protocols"]["snmp"] = [
-                SnmpIntent(**snmp_data) for snmp_data in protocols["snmp"]
             ]
 
         # Anything else under protocols (e.g. a hand-added "radius" block) has
@@ -185,6 +184,9 @@ def dehydrate_intents(intents: dict) -> dict:
             dataclasses.asdict(i) for i in intents["network_instances"]
         ]
 
+    if "snmp" in intents:
+        raw["snmp"] = dataclasses.asdict(intents["snmp"])
+
     if "protocols" in intents:
         raw["protocols"] = {}
         protocols = intents["protocols"]
@@ -197,9 +199,6 @@ def dehydrate_intents(intents: dict) -> dict:
             # unwrap it back to the flat dict devices.yml expects.
             (ntp_intent,) = protocols["ntp"]
             raw["protocols"]["ntp"] = dataclasses.asdict(ntp_intent)
-
-        if "snmp" in protocols:
-            raw["protocols"]["snmp"] = [dataclasses.asdict(i) for i in protocols["snmp"]]
 
         # Pass through anything hydrate_intents preserved verbatim (plain
         # dicts/lists, not dataclasses -- nothing to asdict()).
@@ -269,10 +268,32 @@ def save_devices(devices: list[dict]) -> None:
     (i.e. what load_devices() returns, after edits). Only host + intents
     are written to devices.yml -- vendor comes from inventory.yml and was
     never devices.yml's to store.
+
+    Writes atomically: dehydrate + serialize to text fully in memory first,
+    then write that text to a temp file in the same directory and rename it
+    over devices.yml. Opening devices.yml directly with mode "w" truncates
+    it immediately, before a single byte is written -- if dehydrate_intents
+    or yaml.safe_dump then raised (e.g. a caller accidentally handed this a
+    dict shaped wrong, so a dataclass instance survives dehydration
+    un-converted), the file was left empty with no way back except a backup.
+    The temp-file-then-rename here means devices.yml is only ever touched
+    by a rename that swaps in a complete, valid file -- a failure raises
+    the same exception to the caller but leaves the existing file untouched.
     """
     raw = [{"host": d["host"], "intents": dehydrate_intents(d.get("intents", {}))} for d in devices]
-    with open(DEVICES_YML, "w") as f:
-        yaml.safe_dump(raw, f, sort_keys=False)
+    text = yaml.safe_dump(raw, sort_keys=False)
+
+    fd, tmp_path = tempfile.mkstemp(
+        dir=DEVICES_YML.parent, prefix=".devices.yml.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(tmp_path, DEVICES_YML)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
 
 
 def save_device(host: str, updated_intents: dict) -> None:
@@ -341,10 +362,10 @@ def preview_translation(host: str, payload_format: str = "xml") -> list[dict]:
             payload = translators["ntp"].translate(ntp, payload_format=payload_format)
             results.append(_preview_entry("ntp", ntp, payload))
 
-    for snmp in protocols.get("snmp", []):
-        if "snmp" in translators:
-            payload = translators["snmp"].translate(snmp, payload_format=payload_format)
-            results.append(_preview_entry("snmp", snmp, payload))
+    snmp_intent = intents.get("snmp")
+    if snmp_intent and "snmp" in translators:
+        payload = translators["snmp"].translate(snmp_intent, payload_format=payload_format)
+        results.append(_preview_entry("snmp", snmp_intent, payload))
 
     return results
 

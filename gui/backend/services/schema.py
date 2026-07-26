@@ -116,11 +116,11 @@ def supported_intent_categories(vendor: str) -> list[str]:
     ospf / ntp / snmp) make sense to show for this vendor, derived from
     which translators registry.py actually registers for it.
 
-    Note: "snmp" won't appear here for any vendor yet -- intent/snmp.py
-    exists and hydrates cleanly (see pipeline.py), but no vendor has an
-    "snmp" translator registered in registry.py yet. That's the correct
-    behavior: this function reflects what's actually deployable, not just
-    what has a dataclass.
+    "snmp" is a top-level category, not a "protocols" one (see
+    framework/devices.yml and framework/scope.py -- SNMP isn't a routing
+    protocol). It appears here for "srlinux" now that registry.py registers
+    SrlinuxSnmpTranslator; cEOS has no snmp translator, since SNMP can't be
+    configured via YANG on cEOS, so it's correctly absent for that vendor.
     """
     translator_keys = set(TRANSLATORS.get(vendor, {}).keys())
     supported = []

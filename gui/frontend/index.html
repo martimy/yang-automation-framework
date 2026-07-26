@@ -121,6 +121,19 @@
           <div v-else style="font-size:12px;color:#999">none</div>
         </div>
 
+        <!-- object-shaped category: snmp (a single instance, top-level -- not a "protocols" entry) -->
+        <div v-if="vendorCategories.includes('snmp')" class="category">
+          <div class="category-header">
+            <span class="name">snmp</span>
+            <button v-if="!formIntents.snmp" class="small" @click="formIntents.snmp = makeDefault(intentSchema.snmp)">+ Add</button>
+            <button v-else class="small danger" @click="formIntents.snmp = null">Remove</button>
+          </div>
+          <div v-if="formIntents.snmp" class="list-item">
+            <object-fields :fields="intentSchema.snmp.fields" :model-value="formIntents.snmp"></object-fields>
+          </div>
+          <div v-else style="font-size:12px;color:#999">none</div>
+        </div>
+
         <p style="font-size:11px;color:#999">
           Fields typed <code>str</code> here (e.g. OSPF process <code>name</code>) are saved as
           strings even if devices.yml originally had a bare number &mdash; harmless for NETCONF/XML,
@@ -290,7 +303,7 @@ createApp({
       intentSchema: null,       // fetched once from /api/schema/intents, cached
       vendorCategories: [],     // supported_intent_categories for the selected device's vendor
       formIntents: null,        // working copy: {interfaces:[], network_instances:[], ospf:[], ntp:null}
-      intentWarnings: [],       // dotted names (e.g. "protocols.snmp") the framework has no dataclass/translator for
+      intentWarnings: [],       // dotted names (e.g. "protocols.radius") the framework has no dataclass/translator for
       orchestrationInfo: null,
       translationPreview: [],
       translateTransport: 'netconf',
@@ -304,11 +317,14 @@ createApp({
       return this.devices.find(d => d.host === this.selected.host) || null;
     },
     listCategories() {
-      // ospf, ntp, and snmp all live under devices.yml's "protocols" key,
-      // but only ntp is a single instance -- ospf and snmp are lists (a
-      // device can have more than one SNMP target), same as interfaces and
-      // network_instances -- so they're grouped with the other list categories.
-      return ['interfaces', 'network_instances', 'ospf', 'snmp'].filter(c => this.vendorCategories.includes(c));
+      // ospf lives under devices.yml's "protocols" key and is list-shaped
+      // (a device can have more than one OSPF process), same as interfaces
+      // and network_instances -- so they're grouped together here. ntp is
+      // also under "protocols" but is a single instance, and snmp is a
+      // single instance too but lives at the top level, a sibling of
+      // "protocols" (it's not a routing protocol) -- both get their own
+      // single-instance blocks below instead.
+      return ['interfaces', 'network_instances', 'ospf'].filter(c => this.vendorCategories.includes(c));
     },
   },
   methods: {
@@ -375,8 +391,8 @@ createApp({
         this.intentSaveError = err.detail || 'Save failed';
       }
     },
-    // API shape (matches devices.yml): {interfaces:[], network_instances:[], protocols:{ospf:[], ntp:{...}}}
-    // Form shape (flat, easier to template against): {interfaces:[], network_instances:[], ospf:[], ntp:{...}|null, snmp:[]}
+    // API shape (matches devices.yml): {interfaces:[], network_instances:[], snmp:{...}|null, protocols:{ospf:[], ntp:{...}}}
+    // Form shape (flat, easier to template against): {interfaces:[], network_instances:[], ospf:[], ntp:{...}|null, snmp:{...}|null}
     //
     // The form only has fields for interfaces/network_instances/ospf/ntp/snmp --
     // anything else (e.g. a "protocols.radius" block added via the Raw YAML
@@ -385,8 +401,8 @@ createApp({
     // carry that unrecognized content through untouched.
     apiIntentsToForm(apiIntents) {
       const protocols = apiIntents.protocols || {};
-      const knownTop = new Set(['interfaces', 'network_instances', 'protocols']);
-      const knownProtocols = new Set(['ospf', 'ntp', 'snmp']);
+      const knownTop = new Set(['interfaces', 'network_instances', 'snmp', 'protocols']);
+      const knownProtocols = new Set(['ospf', 'ntp']);
       const passthroughTop = {};
       for (const k in apiIntents) if (!knownTop.has(k)) passthroughTop[k] = apiIntents[k];
       const passthroughProtocols = {};
@@ -396,7 +412,7 @@ createApp({
         network_instances: apiIntents.network_instances || [],
         ospf: protocols.ospf || [],
         ntp: protocols.ntp || null,
-        snmp: protocols.snmp || [],
+        snmp: apiIntents.snmp || null,
         _passthroughTop: passthroughTop,
         _passthroughProtocols: passthroughProtocols,
       };
@@ -411,10 +427,10 @@ createApp({
       const apiIntents = { ...(form._passthroughTop || {}) };
       if (this.vendorCategories.includes('interfaces') || form.interfaces.length) apiIntents.interfaces = form.interfaces;
       if (this.vendorCategories.includes('network_instances') || form.network_instances.length) apiIntents.network_instances = form.network_instances;
+      if (this.vendorCategories.includes('snmp') || form.snmp) apiIntents.snmp = form.snmp;
       const protocols = { ...(form._passthroughProtocols || {}) };
       if (this.vendorCategories.includes('ospf') || form.ospf.length) protocols.ospf = form.ospf;
       if (form.ntp) protocols.ntp = form.ntp;
-      if (this.vendorCategories.includes('snmp') || form.snmp.length) protocols.snmp = form.snmp;
       apiIntents.protocols = protocols;
       return apiIntents;
     },

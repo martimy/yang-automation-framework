@@ -76,7 +76,7 @@ def update_device(host: str, update: DeviceUpdate):
         raise HTTPException(422, str(exc))
 
     try:
-        pipeline.save_device(host, hydrated)
+        pipeline.save_device(host, hydrated["intents"])
     except KeyError:
         raise HTTPException(404, f"No device '{host}' in devices.yml")
 
