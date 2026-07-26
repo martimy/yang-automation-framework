@@ -73,11 +73,71 @@ framework/
 
 ## Extension Guide
 
--   **To add a new Feature (e.g., BGP)**:
-    1.  Create `intent/bgp.py`.
-    2.  Create translators in `translation/ceos/` and `translation/srlinux/`.
-    3.  Register the translators in `registry.py`.
-    4.  Update the `DeviceOrchestrator` base class and implementations with `configure_bgp()`.
+Adding a new feature touches multiple files across every layer, by design
+(that's what keeps vendor/transport differences isolated) — but it's easy
+to miss a step, or to get an early decision wrong and have the framework
+and GUI silently disagree. This is the order SNMP was added in, including
+the two decisions that are easy to get wrong on a first pass, and the
+consequence of getting them wrong.
+
+### Decide two things before writing any code
+
+1.  **Where does it live in `devices.yml`?**
+    -   Under `protocols:` (alongside `ospf`, `ntp`) if it *is* a routing
+        protocol.
+    -   As a top-level sibling of `protocols:` if it isn't — e.g. `snmp`
+        (`ntp` may move here too some day; see the comment in
+        `orchestration/base.py`'s `provision()`).
+2.  **Single instance per device, or a list?**
+    -   `ntp`, `snmp`: one per device — a plain dict/dataclass.
+    -   `ospf`: a device can have more than one — a list.
+
+Get either of these wrong and the framework and the GUI can end up
+disagreeing about the shape without either side raising an error. That's
+exactly what happened the first time SNMP was wired up: the GUI treated it
+as a list nested under `protocols`, while `devices.yml`/`deploy.py`/
+`scope.py` treated it as a single top-level dict — so a real `deploy.py`
+run worked, but deploying the same device from the GUI silently did
+nothing (`orchestrator.provision()` never found `intents["snmp"]`), and
+the GUI's own preview showed no payload at all.
+
+### Checklist (example: adding `bgp`, top-level and single-instance)
+
+**Framework — required for the CLI to work:**
+1.  `intent/bgp.py` — new `BgpIntent` dataclass.
+2.  `translation/<vendor>/bgp.py` — one translator class per vendor that
+    supports it.
+3.  `translation/templates/<vendor>/bgp.xml.j2` + `bgp.json.j2` — payload
+    templates.
+4.  `registry.py` — register the translator(s) in `TRANSLATORS[vendor]`.
+5.  `orchestration/base.py` — add the `configure_bgp()` hook and call it
+    from `provision()` in the right phase.
+6.  `orchestration/<vendor>.py` — implement `configure_bgp()` for each
+    vendor that supports it (omit it entirely for a vendor that can't
+    configure this via YANG — see how `orchestration/ceos.py` has no
+    `configure_snmp()`).
+7.  `scope.py` — add `"bgp"` to `TOP_LEVEL_CATEGORIES` if it's top-level
+    (a `protocols`-nested category needs no change here — `filter_intents()`
+    already passes through any key under `protocols`).
+8.  `deploy.py` — hydrate `bgp` from raw YAML in `hydrate_intents()`.
+9.  `devices.yml` — add `bgp:` blocks to the hosts that need it.
+
+**GUI — required so it matches the CLI instead of silently drifting:**
+10. `gui/backend/services/pipeline.py` — hydrate/dehydrate `bgp` the same
+    way as step 8 (`KNOWN_TOP_LEVEL_INTENT_KEYS` / `KNOWN_PROTOCOL_KEYS`),
+    and add it to `preview_translation()`.
+11. `gui/backend/services/schema.py` — add `"bgp": BgpIntent` to
+    `INTENT_CLASSES`; extend `supported_intent_categories()` if it needs
+    vendor filtering beyond what `registry.py` already implies.
+12. `gui/frontend/index.html` — if single-instance, add a form block
+    mirroring `ntp`'s (or `snmp`'s); if list-shaped, add `"bgp"` to
+    `listCategories`.
+
+Steps 10–12 never change how a real deploy behaves — `deploy.py` doesn't
+import anything from `gui/` — but skipping them means the GUI's
+preview/form/save silently diverges from what the CLI actually does, the
+way SNMP's did until it was caught and fixed.
+
 -   **To add a new Transport**:
     1.  Implement a new class in `transport/` (e.g., `RestconfTransport`).
     2.  Update the transport map in `deploy.py`.

@@ -50,13 +50,14 @@ hardcoded vendor list.
   use a bare number (`name: 100`) — editing that field through the form
   saves it back as `"100"`. Harmless for NETCONF/XML; check before relying
   on it for a gNMI/JSON payload that expects a number.
-- **SNMP has a dataclass and GUI plumbing, but no translator yet.**
-  `intent/snmp.py`'s `SnmpIntent` hydrates/dehydrates correctly and shows
-  up in the Intent form's schema, but no vendor has an `snmp` translator
-  registered in `registry.py`, so `supported_intent_categories()` never
-  shows it for any device and nothing ever gets deployed for it. Data you
-  enter is preserved safely across saves either way — this is a "not built
-  yet," not a "will be silently lost" situation.
+- **SNMP is supported for SR Linux, not cEOS.** SR Linux has a registered
+  translator (`registry.py`'s `TRANSLATORS["srlinux"]["snmp"]`), so
+  `supported_intent_categories("srlinux")` includes `snmp`, the Intent
+  form offers it, and Deploy pushes it. cEOS has none, because SNMP can't
+  be configured via YANG on cEOS — `supported_intent_categories("ceos")`
+  correctly never includes it, and `orchestration/ceos.py` has no
+  `configure_snmp()` to call. This is a real per-vendor difference, not a
+  gap to fill in.
 - **Intent types with no framework backing at all are preserved, not
   supported.** If `devices.yml` has a key the framework has no
   dataclass for whatsoever — not even a partial one like SNMP — the GUI
@@ -81,9 +82,19 @@ hardcoded vendor list.
 
 The GUI derives everything from `registry.py` and the `intent/*.py`
 dataclasses, not by scanning every file in `framework/`. Concretely, that
-means when you follow the "To add a new Feature" steps in
-`docs/framework-developer-guide.md`:
+means when you follow the checklist in `docs/framework-developer-guide.md`'s
+"Extension Guide":
 
+- **Decide the same two things the checklist calls out first, and make
+  the GUI agree with `devices.yml`/`deploy.py` about them** — whether the
+  new key is top-level or nested under `protocols`, and whether it's a
+  single instance or a list per device. The GUI doesn't infer this;
+  `gui/backend/services/pipeline.py`'s `hydrate_intents()` /
+  `dehydrate_intents()` need the exact same top-level-vs-`protocols` and
+  single-vs-list handling as `deploy.py`'s own `hydrate_intents()`
+  (tracked via `KNOWN_TOP_LEVEL_INTENT_KEYS` / `KNOWN_PROTOCOL_KEYS`), or
+  the GUI silently disagrees with the CLI about the data's shape — see the
+  SNMP changelog entry below for what that looks like in practice.
 - A new intent dataclass is picked up by the Intent form automatically
   once it's added to `INTENT_CLASSES` in `gui/backend/services/schema.py`.
 - A new translator only shows up in the Translation preview
@@ -95,3 +106,18 @@ means when you follow the "To add a new Feature" steps in
 - Registering a translator in `registry.py` is what makes
   `supported_intent_categories()` in `schema.py` show or hide it per
   vendor — nothing else to update there.
+- In `gui/frontend/index.html`, a single-instance category needs a form
+  block mirroring `ntp`'s (or `snmp`'s); a list-shaped one needs adding to
+  `listCategories` instead. Neither happens automatically.
+
+**Changelog — SNMP shape mismatch (fixed):** the first pass at SNMP only
+added `intent/snmp.py` and registered it in `schema.py`'s `INTENT_CLASSES`.
+`pipeline.py` hydrated/dehydrated it as a *list nested under `protocols`*,
+matching `ospf`'s shape — but `devices.yml`/`deploy.py`/`scope.py` all
+treat SNMP as a *single top-level dict*, since it isn't a routing
+protocol. Neither side raised an error: a real `deploy.py --categories
+snmp` run worked, but the GUI's Translation preview showed no SNMP
+payload at all, and deploying SNMP from the GUI silently did nothing
+(`orchestrator.provision()` never found `intents["snmp"]`, since the GUI
+had it nested one level down from where `provision()` looks). All three
+GUI files now match the framework's shape for `snmp`.
