@@ -65,6 +65,7 @@
       community_trap: traponly
       trap_server_address: 192.168.100.1
       security_level: auth-priv
+      user_name: auser
       auth_protocol: hmac-md5-96
       auth_password: authpass
       priv_protocol: cbc-des
@@ -119,6 +120,7 @@
       community_trap: traponly
       trap_server_address: 192.168.100.1
       security_level: auth-priv
+      user_name: auser
       auth_protocol: hmac-md5-96
       auth_password: authpass
       priv_protocol: cbc-des
