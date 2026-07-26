@@ -3,6 +3,7 @@ from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent
 from intent.ntp import NtpIntent
+from intent.snmp import SnmpIntent
 from typing import List
 
 class SrlinuxOrchestrator(DeviceOrchestrator):
@@ -61,3 +62,9 @@ class SrlinuxOrchestrator(DeviceOrchestrator):
             intent, payload_format=payload_format
         )
         return self.transport.push_config(ntp_payload)
+
+    def configure_snmp(self, intent: SnmpIntent, payload_format: str = "xml") -> bool:
+        snmp_payload = self.translators["snmp"].translate(
+            intent, payload_format=payload_format
+        )
+        return self.transport.push_config(snmp_payload)

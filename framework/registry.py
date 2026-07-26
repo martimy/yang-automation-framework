@@ -6,6 +6,7 @@ from translation.srlinux.subinterface import SrlinuxSubinterfaceTranslator
 from translation.srlinux.network_instance import NetworkInstanceTranslator
 from translation.srlinux.ospf import SrlinuxOspfTranslator
 from translation.srlinux.ntp import SrlinuxNtpTranslator
+from translation.srlinux.snmp import SrlinuxSnmpTranslator
 from translation.srlinux.ni_interface import NiInterfaceBindingTranslator
 
 from orchestration.ceos import CeosOrchestrator
@@ -23,6 +24,7 @@ TRANSLATORS = {
         "ni_interface": NiInterfaceBindingTranslator(),
         "ospf": SrlinuxOspfTranslator(),
         "ntp": SrlinuxNtpTranslator(),
+        "snmp": SrlinuxSnmpTranslator(),
     },
 }
 

@@ -17,7 +17,7 @@ it filters whatever protocol keys happen to be present, so a newly added
 protocol type works here with no changes.
 """
 
-TOP_LEVEL_CATEGORIES = {"interfaces", "network_instances"}
+TOP_LEVEL_CATEGORIES = {"interfaces", "network_instances", "snmp"}
 
 
 def filter_intents(intents: dict, categories: set[str] | None) -> dict:

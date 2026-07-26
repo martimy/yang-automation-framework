@@ -1,0 +1,61 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<system xmlns="urn:nokia.com:srlinux:general:system">
+    <snmp xmlns="urn:nokia.com:srlinux:linux:snmp">
+        {% if community_ro is not none %}
+        <access-group>
+            <name>SNMPv2_AG</name>
+            <security-level>no-auth-no-priv</security-level>
+            <community-entry>
+                <name>RO_ENTRY</name>
+                <community>{{ community_ro }}</community>
+            </community-entry>
+        </access-group>
+        {% endif %}
+
+        {% if community_trap is not none %}
+        <trap-group>
+            <name>TRAP_AG</name>
+            <admin-state>enable</admin-state>
+            <network-instance>{{ network_instance }}</network-instance>
+            <destination>
+                <name>TRAP_SERVER</name>
+                <admin-state>enable</admin-state>
+                <address>{{ trap_server_address }}</address>
+                <security-level>no-auth-no-priv</security-level>
+                <community-entry>
+                    <name>TRAP_ENTRY</name>
+                    <community>{{ community_trap }}</community>
+                </community-entry>
+            </destination>
+        </trap-group>
+        {% endif %}
+
+        {% if security_level in ['auth-priv', 'auth-no-priv'] %}
+        <access-group>
+            <name>SNMPv3</name>
+            <admin-state>enable</admin-state>
+            <security-level>{{ security_level }}</security-level>
+            <security-entry>
+                <name>SEC_ENTRY</name>
+                <user>{{ user_name }}</user>
+                <authentication>
+                    <protocol>{{ auth_protocol }}</protocol>
+                    <password>{{ auth_password }}</password>
+                </authentication>
+                {% if security_level == 'auth-priv' %}
+                <privacy>
+                    <protocol>{{ priv_protocol }}</protocol>
+                    <password>{{ priv_password }}</password>
+                </privacy>
+                {% endif %}
+            </security-entry>
+        </access-group>
+        {% endif %}
+
+        <network-instance>
+            <name>{{ network_instance }}</name>
+            <admin-state>enable</admin-state>
+        </network-instance>
+    </snmp>
+</system>
+</config>

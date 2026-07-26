@@ -59,6 +59,16 @@
       description: To SRL-02
       network_instance: default
       subinterface: 0
+    snmp:
+      network_instance: mgmt
+      community_ro: readonly
+      community_trap: traponly
+      trap_server_address: 192.168.100.1
+      security_level: auth-priv
+      auth_protocol: hmac-md5-96
+      auth_password: authpass
+      priv_protocol: cbc-des
+      priv_password: privpass
     protocols:
       ospf:
       - name: 100
@@ -103,6 +113,16 @@
       description: To SRL-01
       network_instance: default
       subinterface: 0
+    snmp:
+      network_instance: mgmt
+      community_ro: readonly
+      community_trap: traponly
+      trap_server_address: 192.168.100.1
+      security_level: auth-priv
+      auth_protocol: hmac-md5-96
+      auth_password: authpass
+      priv_protocol: cbc-des
+      priv_password: privpass
     protocols:
       ospf:
       - name: 100

@@ -10,6 +10,7 @@ from intent.interface import InterfaceIntent
 from intent.network_instance import NetworkInstanceIntent
 from intent.ospf import OspfIntent, OspfAreaIntent, OspfInterfaceIntent
 from intent.ntp import NtpIntent, NtpServerIntent
+from intent.snmp import SnmpIntent
 
 from credentials import resolve_credentials, vendor_for_host, all_hosts, CredentialsError
 from registry import TRANSLATORS, ORCHESTRATORS
@@ -30,6 +31,9 @@ def hydrate_intents(raw_intents: dict) -> dict:
         new_intents["network_instances"] = [
             NetworkInstanceIntent(**data) for data in raw_intents["network_instances"]
         ]
+
+    if "snmp" in raw_intents:
+        new_intents["snmp"] = SnmpIntent(**raw_intents["snmp"])
 
     if "protocols" in raw_intents:
         new_intents["protocols"] = {}

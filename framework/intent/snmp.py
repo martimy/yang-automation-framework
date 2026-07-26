@@ -2,6 +2,31 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Literal
 
+ 
+"""
+SRLinux Security Levels:
+  no-auth-no-priv
+  auth-no-priv
+  auth-priv
+"""
+
+"""
+SRLinux authentication protocols
+  hmac-md5-96
+  hmac-sha1-96
+  hmac-sha2-224
+  hmac-sha2-256
+  hmac-sha2-384
+  hmac-sha2-512
+"""
+
+"""
+SRLinux privacy protocols
+  cbc-des
+  cfb128-aes-128
+  cfb128-aes-192
+  cfb128-aes-256
+"""
 
 @dataclass
 class SnmpIntent:
@@ -11,21 +36,24 @@ class SnmpIntent:
     """
 
     # Common parameters
-    host: str
-    version: str
+    network_instance : str = "mgmt"
 
     # SNMPv2c specific
-    community_ro: Optional[str] = None
+    # SR Linux supports read-only SNMP community string
+    community_ro: Optional[str] = None        # must have value to enable v2c
     community_rw: Optional[str] = None
 
+    # v2c Trap server
+    community_trap: Optional[str] = None      # must have value to enable
+    trap_server_address: Optional[str] = None
+
     # SNMPv3 specific
-    security_name: Optional[str] = None          # username
-    security_level: Optional[str] = None
+    security_level: Optional[str] = None      # must have value to enable v3
+    user_name: Optional[str] = None
     auth_protocol: Optional[str] = None
     auth_password: Optional[str] = None
-    privacy_protocol: Optional[str] = None
-    privacy_password: Optional[str] = None
-    context_engine_id: Optional[str] = None
-    context_name: Optional[str] = None
+    priv_protocol: Optional[str] = None
+    priv_password: Optional[str] = None
 
-    enabled: bool = True
+    # v3 Trap server
+    # to be completed

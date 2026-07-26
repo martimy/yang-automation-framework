@@ -28,6 +28,10 @@ class DeviceOrchestrator(ABC):
             print("config instance")
             self.configure_network_instance([intent], payload_format=payload_format)
 
+        snmp_intent = intents.get("snmp")
+        if snmp_intent:
+            self.configure_snmp(snmp_intent, payload_format=payload_format)
+
         # Phase 2: Interfaces (neded for everything else)
         for intent in intents.get("interfaces", []):
             self.configure_interface([intent], payload_format=payload_format)
@@ -38,5 +42,6 @@ class DeviceOrchestrator(ABC):
         for ospf_intent in protocols.get("ospf", []):
             self.configure_ospf(ospf_intent, payload_format=payload_format)
 
+        ## Review the dependency on interfaces, could be treated like SNMP
         for ntp_intent in protocols.get("ntp", []):
             self.configure_ntp(ntp_intent, payload_format=payload_format)

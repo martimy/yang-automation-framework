@@ -1,0 +1,71 @@
+{
+"path": "srl_nokia-system:system/srl_nokia-system-snmp:snmp",
+"value": {
+    "access-group": [
+      {% if community_ro is not none %}
+      {
+        "community-entry": [
+          {
+            "community": "{{ community_ro }}",
+            "name": "RO_ENTRY"
+          }
+        ],
+        "name": "SNMPv2_AG",
+        "security-level": "no-auth-no-priv"
+      },
+      {% endif %}
+
+      {% if security_level in ['auth-priv', 'auth-no-priv'] %}
+      {
+        "admin-state": "enable",
+        "name": "SNMPv3",
+        "security-entry": [
+          {
+            "authentication": {
+              "password": "{{ auth_password }}",
+              "protocol": "{{ auth_protocol }}"
+            },
+            "name": "SEC_ENTRY",
+            "privacy": {
+              "password": "{{ priv_password }}",
+              "protocol": "{{ priv_protocol }}"
+            },
+            "user": "{{ user_name }}"
+          }
+        ],
+        "security-level": "auth-priv"
+      }
+      {% endif %}
+    ],
+
+    {% if community_trap is not none %}
+    "trap-group": [
+      {
+        "admin-state": "enable",
+        "destination": [
+          {
+            "address": "{{ trap_server_address }}",
+            "admin-state": "enable",
+            "community-entry": [
+              {
+                "community": "{{ community_trap }}",
+                "name": "TRAP_ENTRY"
+              }
+            ],
+            "name": "TRAP_SERVER",
+            "security-level": "no-auth-no-priv"
+          }
+        ],
+        "name": "TRAP_AG",
+        "network-instance": "{{ network_instance }}"
+      }
+    ],
+    {% endif %}
+    "network-instance": [
+      {
+        "admin-state": "enable",
+        "name": "{{ network_instance }}"
+      }
+    ]
+}
+}
